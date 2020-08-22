@@ -1,0 +1,21 @@
+<launch>
+
+  <!-- Joy node -->
+  <node pkg="joy" type="joy_node" name="joy_node" output="screen">
+
+    <param name="dev" value="/dev/input/js0" type="string "/>
+    <param name="deadzone" value="0.05" type="double"/>    
+    <param name="autorepeat_rate" value="1000" type="double"/> 
+
+  </node>
+ 
+  <node pkg="control_4ws4wd" type="fourSteering_node" name="fourSteering" output="screen">
+  	 <param name="l_scale_1" value="800" type="double"/> 
+  	 <param name="w_scale_1" value="400" type="double"/> 
+  	 <param name="l_scale_2" value="1500" type="double"/> 
+  	 <param name="w_scale_2" value="900" type="double"/> 
+  	 
+<!--      <remap from="/cmd_vel" to="/fourSteering/cmd_vel"/>-->
+  </node>
+
+</launch>
