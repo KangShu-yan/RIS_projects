@@ -29,7 +29,9 @@
 #define antiCollisionBarBrake_CmdId	0x7604
 #define motorDriver_CmdId			0x7605
 
-#define led_CmdId					0x7407
+//#define led_CmdId					0x7407
+#define led_CmdId					0x7503
+
 
 #define cmdId_lowByteIndex			0x04
 #define cmdId_highByteIndex			0x05
@@ -61,7 +63,7 @@
 				
 		
 
-unsigned short const crc16_table[256] = {
+unsigned short int const crc16_table[256] = {
 		0x0000,  0xC0C1,  0xC181,  0x0140,  0xC301, 0x03C0, 0x0280 , 0xC241 ,
 		0xC601,  0x06C0,  0x0780, 0xC741,  0x0500,  0xC5C1,  0xC481,  0x0440,
 	0xCC01,  0x0CC0, 0x0D80,  0xCD41,  0x0F00,  0xCFC1,  0xCE81,  0x0E40,
@@ -104,7 +106,7 @@ typedef struct chassisInfoCheckFeedback
 	double mileage;
 	float angle;
 	
-	unsigned short ultrasonic_distance[8];
+	unsigned short int ultrasonic_distance[8];
 	unsigned char antiCollisionBarStatus;
 	unsigned char ultrasonicBrakeStatus;
 	unsigned char antiCollisionBarBrakeStatus;
@@ -136,19 +138,19 @@ typedef struct ledPara_
 /**
 @brief This class implements the TCP/IP client communication.
 */
-unsigned short CRC16(const unsigned char *buffer, unsigned int len);
-unsigned char* encode_motion_cmd(unsigned short linear_x , unsigned short angular_z,unsigned char motion_state_);
-unsigned char* encode_odom_ultra_antiColBar_cmd(unsigned short cmdId);
-unsigned char* encode_ultra_antiColBar_brake_cmd(unsigned short cmdId,unsigned char cmd);
+unsigned short int CRC16(const unsigned char *buffer, unsigned int len);
+unsigned char* encode_motion_cmd(short int linear_x ,  short int angular_z,unsigned char motion_state_);
+unsigned char* encode_odom_ultra_antiColBar_cmd(unsigned short int cmdId);
+unsigned char* encode_ultra_antiColBar_brake_cmd(unsigned short int cmdId,unsigned char cmd);
 unsigned char* encode_driver_exception_cmd(unsigned char driverSide);
 unsigned char* encode_led_cmd(ledParam led_para_);
 
 void decode_motion_cmd(unsigned char* buf,unsigned char len);
-short decode_odom_ultra_antiColBar_brake_cmd(unsigned char* buf,unsigned char len);
+short int decode_odom_ultra_antiColBar_brake_cmd(unsigned char* buf,unsigned char len);
 
 void decode_driver_exception_cmd(unsigned char* buf,unsigned char len);
 void decode_led_cmd(unsigned char* buf,unsigned char len);
-short decode_cmd(unsigned char* buffer,unsigned char len);
+short int decode_cmd(unsigned char* buffer,unsigned char len);
 
-unsigned short uchar_to_ushort(unsigned char sign,unsigned char i);
+unsigned short int uchar_to_ushort(unsigned char sign,unsigned char i);
 #endif //PROJECT_DEAL_CMD_H

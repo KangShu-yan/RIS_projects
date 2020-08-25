@@ -6,19 +6,10 @@
 #include <ros/ros.h>
 #include <geometry_msgs/Twist.h>
 #include <sensor_msgs/Joy.h> 
-
-#include "std_msgs/Int16.h"
-#include "std_msgs/Float32.h"
-#include "std_msgs/Int16MultiArray.h"
-#include "std_msgs/Float32MultiArray.h"
-
-#include "std_msgs/String.h"
 #include <stdbool.h>
-
 #include <iostream>
 #include <sstream>
 
-#include "sixwheel_chassis_control/msg_chassis.h"
 #include "deal_cmd/deal_cmd.h"  //tcp_client is the directory contained in include directory 
 #define MAXLEN 1024
 
@@ -35,60 +26,20 @@ socklen_t len = sizeof(src_addr);
 
 ros::Publisher vel_pub_;
 
-float max_limit(float val,const float max_val)
-{
-	if(val>max_val)
-	{
-		val = max_val;
-	}
-	else if(val<-max_val)
-	{
-		val =-max_val;
-	}
-	else;
-	
-	return val;
-}
-/****************************************************************************
-*	function:
-		decode_four_steering_info:decode the frame datas from chassis
-*	input:
-*		rec_data:received frame datas from chassis
-*		number:assumed whole size of the frame datas
-*	output:
-*		 data :
-		 data :
-*****************************************************************************/
-void decode_four_steering_info(unsigned char* rec_data,int number)
-{
-	static int16_t count=0;
-	double press_data=0.0,degree_data=0.0;
-	int j=0;
-	
-	decode_cmd(rec_data,number);
-	ROS_INFO("decode_four_steering_info function\n");
-//	
-	for (int i = 0; i < number; i++)
-	{
-		printf("%2.2x    ", (unsigned char)rec_data[i]);
-//		
-	}
-	printf("\n");
-
-}
-/****************************************************************************
-*	function:
-		
-*	input:
-*		
-*	output:
-*		send_buf 
-*****************************************************************************/
+/**@brief
+  *@send_motion_cmd function : issue motion command to chassis  
+  * 
+  *@input :   
+  *			linear_x: velocity along axis x
+  *			angular_z: angular velocity along axis z
+  *@output : 
+  *			  	 	   
+**/
 void send_motion_cmd(float linear_x=0,float angular_z=0)
 //void encode_four_steering_info(void)
 {
 	int ret = 0;
-	unsigned short crc = 0;
+	unsigned short int crc = 0;
 	int len = 0;
  	unsigned char *send_buf = encode_motion_cmd(linear_x,angular_z,motion_state);
  	
@@ -97,33 +48,36 @@ void send_motion_cmd(float linear_x=0,float angular_z=0)
 	delete[] send_buf;
 	
 }
-/****************************************************************************
-*	function:
-		
-*	input:
-*		
-*	output:
-*		send_buf 
-*****************************************************************************/
-void send_odom_ultra_antiColBar_check_cmd(unsigned short cmdId)
+/**@brief
+  *@send_odom_ultra_antiColBar_check_cmd function : issue odometry ,ultrasonic and anti-collision bar command to chassis  
+  * 
+  *@input :   
+  *			cmdId: odometry command id ,ultrasonic  command id or anti-collision bar command id
+  *@output : 
+  *			  
+  *		 	   
+**/
+void send_odom_ultra_antiColBar_check_cmd(unsigned short int cmdId)
 {
 	int ret = 0;
-	unsigned short crc = 0;
+	unsigned short int crc = 0;
 	int len = 0;
  	unsigned char *send_buf = encode_odom_ultra_antiColBar_cmd(cmdId);
 	ret = sendto(udp_sock, send_buf, odom_CmdLen, 0, (struct sockaddr *)&src_addr,sizeof(src_addr)); 
 	
 	delete[] send_buf;
 }
-/****************************************************************************
-*	function:
-		
-*	input:
-*		
-*	output:
-*		send_buf 
-*****************************************************************************/
-void send_ultra_antiColBar_brake_cmd(unsigned short cmdId,unsigned char cmd=0)
+/**@brief
+  *@send_ultra_antiColBar_brake_cmd function : issue brake command related to ultrasonic and anti-collision bar to chassis  
+  * 
+  *@input :   
+  *			cmdId: ultrasonic brake command id or anti-collision bar command id
+  *			cmd : 0 as default ,enable or disable 
+  *@output : 
+  *			  
+  *		 	   
+**/
+void send_ultra_antiColBar_brake_cmd(unsigned short int cmdId,unsigned char cmd=0)
 {
 	int ret = 0;
 	
@@ -133,14 +87,15 @@ void send_ultra_antiColBar_brake_cmd(unsigned short cmdId,unsigned char cmd=0)
 	
 	delete[] send_buf;
 }
-/****************************************************************************
-*	function:
-		
-*	input:
-*		
-*	output:
-*		send_buf 
-*****************************************************************************/
+/**@brief
+  *@send_driver_exception_check_cmd function : issue motor driver checked command to chassis  
+  * 
+  *@input :   
+  *			 driverSide: left side motor or right side motor
+  *@output : 
+  *			  
+  *		 	   
+**/
 void send_driver_exception_check_cmd(unsigned char driverSide)
 {
 	int ret = 0;
@@ -152,19 +107,28 @@ void send_driver_exception_check_cmd(unsigned char driverSide)
 	delete[] send_buf;
 }
 
-/****************************************************************************
-*	function:
-		
-*	input:
-*		
-*	output:
-*		send_buf 
-*****************************************************************************/
+/**
+  *@ send_led_cmd function : issue led control command to chassis  
+  * 
+  *@ input :   
+  *			 
+  *@ output : 
+  *			  
+  *		 	   
+**/
 void send_led_cmd(void)
 {
 	int ret = 0;
- 	unsigned char *send_buf = encode_led_cmd(led_control_para);
-	ret = sendto(udp_sock, send_buf, led_CmdLen, 0, (struct sockaddr *)&src_addr,sizeof(src_addr)); 
+	unsigned char *send_buf ;
+//	for(int i=0;i<=10;i++)
+//	{
+//		led_control_para.channel=i;
+		send_buf = encode_led_cmd(led_control_para);
+		ret = sendto(udp_sock, send_buf, led_CmdLen, 0, (struct sockaddr *)&src_addr,sizeof(src_addr)); 
+		
+//	}
+// 	unsigned char *send_buf = encode_led_cmd(led_control_para);
+//	ret = sendto(udp_sock, send_buf, led_CmdLen, 0, (struct sockaddr *)&src_addr,sizeof(src_addr)); 
 	std::cout<<std::endl;
 	for(int i=0;i<led_CmdLen;i++)
 	{
@@ -174,14 +138,15 @@ void send_led_cmd(void)
 	delete[] send_buf;
 }
 
-/****************************************************************************
-*	function:
-		callback function fo subscriber
-*	input:
-*		
-*	output:
-*		
-*****************************************************************************/
+/**
+  *@ param_init function : init basic parameters of joystick  
+  * 
+  *@ input :   
+  *			nh_: node handler  
+  *@ output : 
+  *			  
+  *		 	   
+**/
 void param_init(ros::NodeHandle &nh_)
 {
 	bool ifGetPara;
@@ -230,6 +195,15 @@ void param_init(ros::NodeHandle &nh_)
 
 
 }
+/**
+  *@ udp_init function : init udp communication  
+  * 
+  *@ input :   
+  *			 
+  *@ output : 
+  *			  
+  *		 	   
+**/
 short udp_init()
 {
 	if(udp_sock <0)
@@ -257,16 +231,92 @@ short udp_init()
 	
 	return 1;
 }
+/**
+  *@ run function : cyclic function in main function   
+  * 
+  *@ input :   
+  *			steering_feedback_data : recevied frame data from chassis
+  *			recv_length : length of frame data 
+  *@ output : 
+  *			  
+  *			
+  *  	   
+**/
+void run(unsigned char* steering_feedback_data ,short int &recv_length)
+{
+	int ret=0;
+	static int number=0;
+	number++;
+	if(recv_length>0)
+	 {
+	 	printf("motion_state : %.2x \t   vel_gear ：%.2x \n",motion_state,vel_gear);
+	 	printf("[%s:%d]",inet_ntoa(src_addr.sin_addr),ntohs(src_addr.sin_port));//打印消息发送方的ip与端口号
+	 
+	 	std::cout << "Received " << number << "th data (with length "<< recv_length<<")："<<std::endl;
+	 	//decode_four_steering_info(steering_feedback_data,recv_length);
+	 		
+	 	for(int i=0;i<recv_length;i++)
+	 	{
+	 		printf("%.2x ",steering_feedback_data[i]);
+	 	}
+		std::cout<<std::endl;
+		ret = decode_cmd(steering_feedback_data, recv_length);
+		if(ret==-1)
+		{
+			send_ultra_antiColBar_brake_cmd(antiCollisionBarBrake_CmdId,1);
+		}
+		else if(ret==-2)
+		{
+			send_ultra_antiColBar_brake_cmd(ultrasonicBrake_CmdId,1);
+		}
+		else
+		{	
+	//		send_ultra_antiColBar_brake_cmd(ultrasonicBrake_CmdId);
+		}
+	 }
+	 else
+	{
+		std::cout << "No recevied data !" << std::endl;
+	}
+		
+	if(number%5==0)
+	{
+		send_odom_ultra_antiColBar_check_cmd(odometry_CmdId);		//
+	}
+	if(number%7==0)
+	{
+		send_odom_ultra_antiColBar_check_cmd(ultrasonic_CmdId);
+			
+	}
+	if(number%9==0)
+	{
+		send_odom_ultra_antiColBar_check_cmd(antiCollisionBar_CmdId);
+	}
+		
+	if(number%4==0)
+	{
+		send_driver_exception_check_cmd(0);	//left-side wheel
+		send_driver_exception_check_cmd(1);	//right-side wheel
+	}
+	if(number>10000)
+	{
+		number=0;
+	}	
+	std::cout<<std::endl;
+	
+}
 
-/****************************************************************************
-*	function:
-		callback function fo subscriber
-*	input:
-*		
-*	output:
-*		
-*****************************************************************************/
-
+/**
+  *@ joyCallback function : subscribe joy  
+  * 
+  *@ input :   
+  *			joy : command from operator
+  *
+  *@ output : 
+  *			  
+  *			
+  *  	   
+**/
 void joyCallback(const sensor_msgs::Joy::ConstPtr& joy) 
 {
 
@@ -301,28 +351,35 @@ void joyCallback(const sensor_msgs::Joy::ConstPtr& joy)
 		{
 			motion_state = 1;		//run
 		}
-		else if(joy->buttons[6]||joy->buttons[7])	//LT  RT 
-		{
-			motion_state = 2;	//brake
-		}
-		else if(joy->buttons[8])  //back 
+		
+		else if(joy->buttons[8]||joy->axes[5])  //back 
 		{
 			std::cout<<"[\033[33mled_setting\033[0m] : "<<std::endl;
-			//led_control_para.channel = 5 ;
-			//led_control_para.channel = 6 ;
-			//led_control_para.channel = 7 ;
-			//led_control_para.channel = 8 ;
-			led_control_para.channel = 9 ;
-			
-//			led_control_para.mode = !led_control_para.mode;
-			led_control_para.mode = 0x01;
-			led_control_para.on_lightness=8;	//0-10个等级
+			led_control_para.channel = 1 ;
+			led_control_para.mode = !led_control_para.mode;
+//			led_control_para.mode = 0x00;
+			led_control_para.on_lightness=1;
+			if(joy->axes[5]==1&&led_control_para.on_lightness<10)
+			{
+				led_control_para.on_lightness+=1;	//0-10个等级
+			}
+			else if(joy->axes[5]==-1&&led_control_para.on_lightness>0)
+			{
+				led_control_para.on_lightness+=1;	//0-10个等级
+			}
+			else;
+//			led_control_para.on_lightness=5;	//0-10个等级
 			printf("%.2x \n",led_control_para.mode);	
+			//Sending led cmd toward chassis.
 			send_led_cmd();
 		}
 		else;
 		twist.angular.z = w_scale_*joy->axes[0]; //左摇杆左右
 		twist.linear.x = l_scale_*joy->axes[1]; //左摇杆前后
+	}
+	else if(joy->buttons[6]||joy->buttons[7])	//LT  RT 
+	{
+			motion_state = 2;	//brake
 	}
 	else
 	{
@@ -330,8 +387,7 @@ void joyCallback(const sensor_msgs::Joy::ConstPtr& joy)
 		twist.linear.x = 0; 
 	} 
 	
-	
-	
+
 	//twist.linear.x = max_limit(twist.linear.x,100);	//< = 100mm/s
 	//twist.angular.z = max_limit(twist.angular.z,30);// 30deg/s
 	send_motion_cmd(twist.linear.x ,twist.angular.z);
@@ -347,83 +403,29 @@ int main(int argc, char **argv)
     ros::NodeHandle nh_;
 	ros::Rate loop_rate(1000);  //Hz
 	unsigned char steering_feedback_data[MAXLEN] = {0};
-	int number=0,ret=0;
-	short recv_length=0;
-	
+	int number=0;
+	short int recv_length=0;
+	// parameters initialization of joystick
 	param_init(nh_);
+	//udp initialization
 	if(udp_init()<0)
 	{
 		return -1;
 	}
-	
+	//define a subscriber
 	ros::Subscriber joy_sub_; 
 	vel_pub_ = nh_.advertise<geometry_msgs::Twist>("cmd_vel", 200); 
 	joy_sub_ = nh_.subscribe<sensor_msgs::Joy>("joy", 10, joyCallback); 
     while(ros::ok())
 	{
-		number++;
-	 	recv_length=recvfrom(udp_sock,steering_feedback_data, 1024, 0,(struct sockaddr*)&src_addr, &len);//&number
-	 	//std::cout<<"ret_2 = "<<ret<<std::endl;
-	 	
-	 	if(recv_length>0)
-	 	{
-	 		printf("motion_state : %.2x \t   vel_gear ：%.2x \n",motion_state,vel_gear);
-	 		printf("[%s:%d]",inet_ntoa(src_addr.sin_addr),ntohs(src_addr.sin_port));//打印消息发送方的ip与端口号
-	 	
-	 		std::cout << "recv data  " << number << "th  data (with length "<< recv_length<<")："<<std::endl;
-	 		//decode_four_steering_info(steering_feedback_data,recv_length);
-	 		
-	 		for(int i=0;i<recv_length;i++)
-	 		{
-	 			printf("%.2x ",steering_feedback_data[i]);
-	 		}
-	 		std::cout<<std::endl;
-			ret = decode_cmd(steering_feedback_data, recv_length);
-			if(ret==-1)
-			{
-				send_ultra_antiColBar_brake_cmd(antiCollisionBarBrake_CmdId,1);
-			}
-			else if(ret==-2)
-			{
-				send_ultra_antiColBar_brake_cmd(ultrasonicBrake_CmdId,1);
-			}
-			else
-			{	
-//				send_ultra_antiColBar_brake_cmd(ultrasonicBrake_CmdId);
-			}
-	 	}
-	 	else
-		{
-			std::cout << "No recevied data !" << std::endl;
-		}
 		
-//		if(number%5==0)
-//		{
-//			send_odom_ultra_antiColBar_check_cmd(odometry_CmdId);		//
-//		}
-//		if(number%7==0)
-//		{
-//			send_odom_ultra_antiColBar_check_cmd(ultrasonic_CmdId);
-//			
-//		}
-//		if(number%9==0)
-//		{
-//			send_odom_ultra_antiColBar_check_cmd(antiCollisionBar_CmdId);
-//		}
-//		
-//		if(number%4==0)
-//		{
-//			send_driver_exception_check_cmd(0);	//left-side wheel
-//			send_driver_exception_check_cmd(1);	//right-side wheel
-//		}
-		if(number>10000)
-		{
-			number=0;
-		}
-		std::cout<<std::endl;
+	 	recv_length=recvfrom(udp_sock,steering_feedback_data, 1024, 0,(struct sockaddr*)&src_addr, &len);//&number
+	 	run(steering_feedback_data,recv_length);
+	 	
 		ros::spinOnce();                 
 		loop_rate.sleep();
 	}
 	close(udp_sock);
     return 0;
 }
+
