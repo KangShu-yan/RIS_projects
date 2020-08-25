@@ -1,7 +1,7 @@
 
 
-#ifndef PROJECT_DEAL_CMD_H
-#define PROJECT_DEAL_CMD_H
+#ifndef PROJECT_CHASSIS_4WS4WD_H
+#define PROJECT_CHASSIS_4WS4WD_H
 
 /** @file
 * @brief Main header for tcp communications
@@ -50,7 +50,17 @@
 
 #define odom_CmdLen					0x08
 #define odom_feedback_CmdLen		0x10
+
+#define ultrasonic_CmdLen			0x08
 #define ultrasonic_feedback_CmdLen	0x18
+
+#define antiCollisionBar_CmdLen		0x08
+#define antiColBar_feedback_CmdLen	0x09
+
+#define ultrasonic_brake_feedback_CmdLen 0x09
+#define antiCol_brake_feedback_CmdLen 0x09
+
+
 #define ultra_antiCol_brake_CmdLen	0x09
 #define ultra_antiCol_brake_feedback_CmdLen 0x09
 #define driver_CmdLen				0x09
@@ -61,7 +71,7 @@
 #define drive_left_side				0x00
 #define drive_right_side			0x01
 				
-		
+#define MAXLEN 						1024		
 
 unsigned short int const crc16_table[256] = {
 		0x0000,  0xC0C1,  0xC181,  0x0140,  0xC301, 0x03C0, 0x0280 , 0xC241 ,
@@ -97,6 +107,15 @@ unsigned short int const crc16_table[256] = {
 	0x4400,  0x84C1, 0x8581,  0x4540,  0x8701,  0x47C0,  0x4680,  0x8641, 
 	0x8201, 0x42C0,  0x4380,  0x8341,  0x4100,  0x81C1,  0x8081,  0x4040
 };
+typedef struct chassisMotionCmd
+{
+	//motion
+	float v;
+	float w;
+	unsigned char motion_state;
+	unsigned char vel_gear;
+}chassis_motion_cmd;
+
 typedef struct chassisInfoCheckFeedback
 {
 	//motion
@@ -113,10 +132,7 @@ typedef struct chassisInfoCheckFeedback
 	
 	unsigned int driverStatus;
 	
-	unsigned char ledExecuteStatus;
-	
-	
-	
+	unsigned char ledExecuteStatus;	
 }chassis_info_check_feedback_;
 typedef struct ledPara_
 {
@@ -136,21 +152,32 @@ typedef struct ledPara_
 }ledParam;
 
 /**
-@brief This class implements the TCP/IP client communication.
+@brief This 
 */
 unsigned short int CRC16(const unsigned char *buffer, unsigned int len);
-unsigned char* encode_motion_cmd(short int linear_x ,  short int angular_z,unsigned char motion_state_);
-unsigned char* encode_odom_ultra_antiColBar_cmd(unsigned short int cmdId);
-unsigned char* encode_ultra_antiColBar_brake_cmd(unsigned short int cmdId,unsigned char cmd);
+unsigned short int uchar_to_ushort(unsigned char sign,unsigned char i);
+unsigned char* encode_motion_cmd(chassis_motion_cmd &motion_cmd_para);
+unsigned char* encode_odometry_cmd(void);
+unsigned char* encode_ultrasonic_cmd(void);
+unsigned char* encode_antiColBar_cmd(void);
+unsigned char* encode_ultrasonic_brake_cmd(unsigned char cmd);
+unsigned char* encode_antiColBar_brake_cmd(unsigned char cmd);
 unsigned char* encode_driver_exception_cmd(unsigned char driverSide);
 unsigned char* encode_led_cmd(ledParam led_para_);
 
 void decode_motion_cmd(unsigned char* buf,unsigned char len);
-short int decode_odom_ultra_antiColBar_brake_cmd(unsigned char* buf,unsigned char len);
-
+short decode_odometry_cmd(unsigned char* buf,unsigned char len);
+short int decode_ultrasonic_cmd(unsigned char* buf,unsigned char len);
+short int decode_antiColBar_cmd(unsigned char* buf,unsigned char len);
+short int decode_ultrasonic_brake_cmd(unsigned char* buf,unsigned char len);
+short int decode_antiColBar_brake_cmd(unsigned char* buf,unsigned char len);
 void decode_driver_exception_cmd(unsigned char* buf,unsigned char len);
 void decode_led_cmd(unsigned char* buf,unsigned char len);
+
 short int decode_cmd(unsigned char* buffer,unsigned char len);
 
-unsigned short int uchar_to_ushort(unsigned char sign,unsigned char i);
+short int udp_init(void);
+void run(chassis_motion_cmd &motion_cmd_para);
+void chassis_close_udp(void);
+
 #endif //PROJECT_DEAL_CMD_H

@@ -143,9 +143,9 @@ include_directories(
 #	include/tcp_client/class_tcp.h	
 #	src/class_tcp.cpp
 #)
-add_library(deal_cmd
-	include/deal_cmd/deal_cmd.h	
-	src/deal_cmd.cpp
+add_library(chassis_4ws4wd
+	include/chassis_4ws4wd/chassis_4ws4wd.h	
+	src/chassis_4ws4wd.cpp
 )
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
@@ -183,10 +183,10 @@ add_library(deal_cmd
 #target_link_libraries(suspension_control ${catkin_LIBRARIES})
 
 
-add_executable(fourSteering_node src/fourSteering_node.cpp
-								   src/deal_cmd.cpp)
-target_link_libraries(fourSteering_node ${catkin_LIBRARIES})
-add_dependencies(fourSteering_node ${PROJECT_NAME}_generate_messages_cpp)
+add_executable(chassis_4ws4wd_node src/chassis_4ws4wd_node.cpp
+								   src/chassis_4ws4wd.cpp)
+target_link_libraries(chassis_4ws4wd_node ${catkin_LIBRARIES})
+add_dependencies(chassis_4ws4wd_node ${PROJECT_NAME}_generate_messages_cpp)
 
 
 

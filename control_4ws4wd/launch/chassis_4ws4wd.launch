@@ -9,13 +9,13 @@
 
   </node>
  
-  <node pkg="control_4ws4wd" type="fourSteering_node" name="fourSteering" output="screen">
+  <node pkg="control_4ws4wd" type="chassis_4ws4wd_node" name="chassis_4ws4wd" output="screen">
   	 <param name="l_scale_1" value="800" type="double"/> 
   	 <param name="w_scale_1" value="400" type="double"/> 
   	 <param name="l_scale_2" value="1500" type="double"/> 
   	 <param name="w_scale_2" value="900" type="double"/> 
   	 
-<!--      <remap from="/cmd_vel" to="/fourSteering/cmd_vel"/>-->
+<!--      <remap from="/cmd_vel" to="/chassis_4ws4wd_node/cmd_vel"/>-->
   </node>
 
 </launch>

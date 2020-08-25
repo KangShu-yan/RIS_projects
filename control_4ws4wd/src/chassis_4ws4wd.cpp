@@ -1,9 +1,13 @@
 
 
-#include <deal_cmd/deal_cmd.h>
+#include <chassis_4ws4wd/chassis_4ws4wd.h>
+
+int udp_sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+struct sockaddr_in servaddr;
+struct sockaddr_in  src_addr = { 0 };
+socklen_t len = sizeof(src_addr);
 
 chassis_info_check_feedback_ chassis_feedback_info = {0};
-
 /**
  * \file
 * @brief Source code for this .cpp that does cmd encode and decode 
@@ -64,8 +68,12 @@ unsigned short int uchar_to_ushort(unsigned char *buf,unsigned char i)
   *@ output : 
   *			send_buf : issue linear velocity along axis and angular velocity along axis z to the chassis
 **/
-unsigned char* encode_motion_cmd(short int linear_x, short int angular_z,unsigned char motion_state_)
+unsigned char* encode_motion_cmd(chassis_motion_cmd &motion_cmd_para)
 {
+	int ret = 0;
+	short int linear_x = motion_cmd_para.v;
+	short int angular_z = motion_cmd_para.w;
+	unsigned char motion_state = motion_cmd_para.motion_state;
 	unsigned char *send_buf = new unsigned char[(unsigned char)motion_CmdLen] ;	//运动控制指令有13个字节
 	//unsigned char send_buf[motion_CmdLen] ={0};
 	unsigned short int crc = 0;
@@ -80,7 +88,7 @@ unsigned char* encode_motion_cmd(short int linear_x, short int angular_z,unsigne
 	send_buf[i++] = (unsigned short int)(motion_CmdId&Uint16_HighByte)>>8;
 	send_buf[i++] = 0x00;		//CRC 10 C0  09 00 00 00  
 	send_buf[i++] = 0x00;
-	send_buf[i++] = motion_state_;		//motion_state
+	send_buf[i++] = motion_state;		//motion_state
 	
 	if(linear_x<0)
 	{
@@ -105,7 +113,6 @@ unsigned char* encode_motion_cmd(short int linear_x, short int angular_z,unsigne
 		send_buf[i++] = angular_z&Uint16_LowByte;	//angular velocity	0.1deg/s
 		send_buf[i++] = (angular_z&Uint16_HighByte)>>8;
 	}
-	
 //	
 	len = motion_CmdLen-8;
 	crc = CRC16(send_buf+8, len);	//仅针对数据部分
@@ -114,17 +121,121 @@ unsigned char* encode_motion_cmd(short int linear_x, short int angular_z,unsigne
 	//memcpy(send_buf_pointer,send_buf,motion_CmdLen);
 	
 	std::cout<<"[\033[33msend_motion_cmd\033[0m : ]"<<std::endl;
+	std::cout<<"linear_x = "<<linear_x<<"\tangular_z = "<<angular_z<<std::endl;
 	for(int i=0;i<motion_CmdLen;i++)
 	{
 		printf("%.2x ",send_buf[i]);
 	}
+	printf("\n");
 //	printf("motion_CmdLen = %d\t,sizeof(send_buf) = %d\t",(unsigned int)motion_CmdLen,sizeof(send_buf));
+	ret = sendto(udp_sock, send_buf,motion_CmdLen, 0, (struct sockaddr *)&src_addr,sizeof(src_addr)); 
+
 	return send_buf;
 	
 }
 /**
   *@brief 
-  *@encode_ultra_antiColBar_brake_cmd function : Designed to encode brake cmd related to ultrasonic and antiCollisionBar
+  *@encode_odometry_cmd function : Designed to encode odometry cmd
+  *
+  *@input : 
+  *			cmdId : command ID
+  * 		
+  *@output : 
+  *			send_buf : a frame data to be issued to chassis 
+**/
+unsigned char* encode_odometry_cmd(void)
+{
+	unsigned char *send_buf = new unsigned char[odom_CmdLen];	//运动控制指令有13个字节
+	unsigned short int crc = 0;
+	short i=0;
+	int len = 0;
+	unsigned char ret = 0;
+	send_buf[i++] = (unsigned short)GS_ascii&Uint16_LowByte;		//"GS"
+	send_buf[i++] = (unsigned short)(GS_ascii&Uint16_HighByte)>>8;	
+	send_buf[i++] = (unsigned short)odom_CmdLen&Uint16_LowByte;		//Size
+	send_buf[i++] = (unsigned short)(odom_CmdLen&Uint16_HighByte)>>8;
+	send_buf[i++] = (unsigned short)odometry_CmdId&Uint16_LowByte;		//CmdId
+	send_buf[i++] = (unsigned short)(odometry_CmdId&Uint16_HighByte)>>8;
+	send_buf[i++] = 0x00;		//CRC 10 C0  09 00 00 00  
+	send_buf[i++] = 0x00;
+	
+	len = odom_CmdLen-8;
+	crc = CRC16(send_buf+8, len);	//仅针对数据部分
+	send_buf[6] = (unsigned short)crc&0x00ff;		//CRC 10 C0  09 00 00 00  
+	send_buf[7] = (unsigned short)(crc&0xff00)>>8;
+	
+	ret = sendto(udp_sock, send_buf, odom_CmdLen, 0, (struct sockaddr *)&src_addr,sizeof(src_addr)); 
+	return send_buf;
+}
+/**
+  *@brief 
+  *@encode_ultrasonic_cmd function : Designed to encode ultrasonic ,antiCollisionBar and their brake cmd
+  *
+  *@input : 
+  *			cmdId : command ID
+  * 		
+  *@output : 
+  *			send_buf : a frame data to be issued to chassis 
+**/
+unsigned char* encode_ultrasonic_cmd()
+{
+	unsigned char *send_buf = new unsigned char[ultrasonic_CmdLen];	//运动控制指令有13个字节
+	unsigned short int crc = 0;
+	short i=0;
+	int len = 0;
+	unsigned char ret = 0;
+	send_buf[i++] = (unsigned short)GS_ascii&Uint16_LowByte;		//"GS"
+	send_buf[i++] = (unsigned short)(GS_ascii&Uint16_HighByte)>>8;	
+	send_buf[i++] = (unsigned short)ultrasonic_CmdLen&Uint16_LowByte;		//Size
+	send_buf[i++] = (unsigned short)(ultrasonic_CmdLen&Uint16_HighByte)>>8;
+	send_buf[i++] = (unsigned short)ultrasonic_CmdId&Uint16_LowByte;		//CmdId
+	send_buf[i++] = (unsigned short)(ultrasonic_CmdId&Uint16_HighByte)>>8;
+	send_buf[i++] = 0x00;		//CRC 10 C0  09 00 00 00  
+	send_buf[i++] = 0x00;
+	
+	len = ultrasonic_CmdLen-8;
+	crc = CRC16(send_buf+8, len);	//仅针对数据部分
+	send_buf[6] = (unsigned short)crc&0x00ff;		//CRC 10 C0  09 00 00 00  
+	send_buf[7] = (unsigned short)(crc&0xff00)>>8;
+	ret = sendto(udp_sock, send_buf, ultrasonic_CmdLen, 0, (struct sockaddr *)&src_addr,sizeof(src_addr)); 
+	return send_buf;
+}
+/**
+  *@brief 
+  *@encode_antiColBar_cmd function : Designed to encode ultrasonic ,antiCollisionBar and their brake cmd
+  *
+  *@input : 
+  *			cmdId : command ID
+  * 		
+  *@output : 
+  *			send_buf : a frame data to be issued to chassis 
+**/
+unsigned char* encode_antiColBar_cmd(void)
+{
+	unsigned char *send_buf = new unsigned char[antiCollisionBar_CmdLen];	//运动控制指令有13个字节
+	unsigned short int crc = 0;
+	short int i=0;
+	int len = 0;
+	short int ret = 0;
+	send_buf[i++] = (unsigned short)GS_ascii&Uint16_LowByte;		//"GS"
+	send_buf[i++] = (unsigned short)(GS_ascii&Uint16_HighByte)>>8;	
+	send_buf[i++] = (unsigned short)antiCollisionBar_CmdLen&Uint16_LowByte;		//Size
+	send_buf[i++] = (unsigned short)(antiCollisionBar_CmdLen&Uint16_HighByte)>>8;
+	send_buf[i++] = (unsigned short)antiCollisionBar_CmdId&Uint16_LowByte;		//CmdId
+	send_buf[i++] = (unsigned short)(antiCollisionBar_CmdId&Uint16_HighByte)>>8;
+	send_buf[i++] = 0x00;		//CRC 10 C0  09 00 00 00  
+	send_buf[i++] = 0x00;
+	
+	len = antiCollisionBar_CmdLen-8;
+	crc = CRC16(send_buf+8, len);	//仅针对数据部分
+	send_buf[6] = (unsigned short)crc&0x00ff;		//CRC 10 C0  09 00 00 00  
+	send_buf[7] = (unsigned short)(crc&0xff00)>>8;
+	ret = sendto(udp_sock, send_buf, antiCollisionBar_CmdLen, 0, (struct sockaddr *)&src_addr,sizeof(src_addr)); 
+	return send_buf;
+}
+/**
+  *@brief 
+  *@encode_ultrasonic_brake_cmd function : Designed to encode brake cmd related to ultrasonic and antiCollisionBar
   *
   *@input : 
   *			cmdId : command ID
@@ -133,18 +244,19 @@ unsigned char* encode_motion_cmd(short int linear_x, short int angular_z,unsigne
   *@output : 
   *			send_buf : a frame data to be issued to chassis 
 **/
-unsigned char* encode_ultra_antiColBar_brake_cmd(unsigned short cmdId,unsigned char cmd)//
+unsigned char* encode_ultrasonic_brake_cmd(unsigned char cmd)//
 {
 	unsigned char *send_buf = new unsigned char[ultra_antiCol_brake_CmdLen];	//运动控制指令有13个字节
 	unsigned short crc = 0;
 	short i=0;
 	int len = 0;
+	unsigned char ret = 0;
 	send_buf[i++] = (unsigned short)GS_ascii&Uint16_LowByte;		//"GS"
 	send_buf[i++] = (unsigned short)(GS_ascii&Uint16_HighByte)>>8;	
 	send_buf[i++] = (unsigned short)odom_CmdLen&Uint16_LowByte;		//Size
 	send_buf[i++] = (unsigned short)(odom_CmdLen&Uint16_HighByte)>>8;
-	send_buf[i++] = (unsigned short)cmdId&Uint16_LowByte;		//CmdId
-	send_buf[i++] = (unsigned short)(cmdId&Uint16_HighByte)>>8;
+	send_buf[i++] = (unsigned short)ultrasonicBrake_CmdId&Uint16_LowByte;		//CmdId
+	send_buf[i++] = (unsigned short)(ultrasonicBrake_CmdId&Uint16_HighByte)>>8;
 	send_buf[i++] = 0x00;		//CRC 10 C0  09 00 00 00  
 	send_buf[i++] = 0x00;
 	send_buf[i++] = cmd;
@@ -157,35 +269,40 @@ unsigned char* encode_ultra_antiColBar_brake_cmd(unsigned short cmdId,unsigned c
 }
 /**
   *@brief 
-  *@encode_odom_ultra_antiColBar_cmd function : Designed to encode ultrasonic ,antiCollisionBar and their brake cmd
+  *@encode_antiColBar_brake_cmd function : Designed to encode brake cmd related to ultrasonic and antiCollisionBar
   *
   *@input : 
   *			cmdId : command ID
+  *			cmd : enable or disable 
   * 		
   *@output : 
   *			send_buf : a frame data to be issued to chassis 
 **/
-unsigned char* encode_odom_ultra_antiColBar_cmd(unsigned short int cmdId)
+unsigned char* encode_antiColBar_brake_cmd(unsigned char cmd)//
 {
-	unsigned char *send_buf = new unsigned char[odom_CmdLen];	//运动控制指令有13个字节
-	unsigned short int crc = 0;
+	unsigned char *send_buf = new unsigned char[ultra_antiCol_brake_CmdLen];	//运动控制指令有13个字节
+	unsigned short crc = 0;
 	short i=0;
 	int len = 0;
+	unsigned char ret = 0;
 	send_buf[i++] = (unsigned short)GS_ascii&Uint16_LowByte;		//"GS"
 	send_buf[i++] = (unsigned short)(GS_ascii&Uint16_HighByte)>>8;	
-	send_buf[i++] = (unsigned short)odom_CmdLen&Uint16_LowByte;		//Size
-	send_buf[i++] = (unsigned short)(odom_CmdLen&Uint16_HighByte)>>8;
-	send_buf[i++] = (unsigned short)cmdId&Uint16_LowByte;		//CmdId
-	send_buf[i++] = (unsigned short)(cmdId&Uint16_HighByte)>>8;
+	send_buf[i++] = (unsigned short)ultra_antiCol_brake_CmdLen&Uint16_LowByte;		//Size
+	send_buf[i++] = (unsigned short)(ultra_antiCol_brake_CmdLen&Uint16_HighByte)>>8;
+	send_buf[i++] = (unsigned short)antiCollisionBarBrake_CmdId&Uint16_LowByte;		//CmdId
+	send_buf[i++] = (unsigned short)(antiCollisionBarBrake_CmdId&Uint16_HighByte)>>8;
 	send_buf[i++] = 0x00;		//CRC 10 C0  09 00 00 00  
 	send_buf[i++] = 0x00;
+	send_buf[i++] = cmd;
 	
-	len = odom_CmdLen-8;
+	len = ultra_antiCol_brake_CmdLen-8;
 	crc = CRC16(send_buf+8, len);	//仅针对数据部分
 	send_buf[6] = (unsigned short)crc&0x00ff;		//CRC 10 C0  09 00 00 00  
 	send_buf[7] = (unsigned short)(crc&0xff00)>>8;
 	return send_buf;
 }
+
+
 /**
   *@brief 
   *@encode_driver_exception_cmd function : Designed to encode driver exception cmd
@@ -202,6 +319,7 @@ unsigned char* encode_driver_exception_cmd(unsigned char driverSide)	//right sid
 	unsigned short int crc = 0;
 	short int i=0;
 	int len = 0;
+	unsigned char ret = 0;
 	send_buf[i++] = (unsigned short int)GS_ascii&Uint16_LowByte;		//"GS"
 	send_buf[i++] = (unsigned short int)(GS_ascii&Uint16_HighByte)>>8;	
 	send_buf[i++] = (unsigned short int)driver_CmdLen&Uint16_LowByte;		//Size
@@ -216,6 +334,9 @@ unsigned char* encode_driver_exception_cmd(unsigned char driverSide)	//right sid
 	crc = CRC16(send_buf+8, len);	//仅针对数据部分
 	send_buf[6] = (unsigned short int)crc&0x00ff;		//CRC 10 C0  09 00 00 00  
 	send_buf[7] = (unsigned short int)(crc&0xff00)>>8;
+	
+	ret = sendto(udp_sock, send_buf, driver_CmdLen, 0, (struct sockaddr *)&src_addr,sizeof(src_addr)); 
+	
 	return send_buf;
 }
 /**
@@ -234,6 +355,7 @@ unsigned char* encode_led_cmd(ledParam led_para_)
 	unsigned short int crc = 0;
 	short i=0;
 	int len = 0;
+	unsigned char ret = 0;
 	send_buf[i++] = (unsigned short)GS_ascii&Uint16_LowByte;		//"GS"
 	send_buf[i++] = (unsigned short)(GS_ascii&Uint16_HighByte)>>8;	
 	send_buf[i++] = (unsigned short)led_CmdLen&Uint16_LowByte;		//Size
@@ -260,6 +382,15 @@ unsigned char* encode_led_cmd(ledParam led_para_)
 	crc = CRC16(send_buf+8, len);	//仅针对数据部分
 	send_buf[6] = (unsigned short int )crc&0x00ff;		//CRC 10 C0  09 00 00 00  
 	send_buf[7] = (unsigned short int)(crc&0xff00)>>8;
+	
+	ret = sendto(udp_sock, send_buf, led_CmdLen, 0, (struct sockaddr *)&src_addr,sizeof(src_addr)); 
+	//show 
+	std::cout<<std::endl;
+	for(int i=0;i<led_CmdLen;i++)
+	{
+		printf("%.2x ",send_buf[i]);
+	}
+	std::cout<<std::endl;
 	return send_buf;
 }
 
@@ -316,8 +447,7 @@ void decode_motion_cmd(unsigned char* buf,unsigned char len)
 	std::cout<<"current v(mm/s) : "<< v<<"\tcurrent W(0.1deg/s) : "<<w<<std::endl;
 }
 /**@brief
-  *@decode_odom_ultra_antiColBar_brake_cmd function : Designed to decode odometry ,ultrasonic ,anti-collision bar and
-  * brake related to ultrasonic and anti-collision bar.
+  *@decode_odometry_cmd function : Designed to decode odometry frame data.
   *
   *@input :   
   *			buf : uploaded frame data
@@ -325,103 +455,122 @@ void decode_motion_cmd(unsigned char* buf,unsigned char len)
   *@output : 
   *			chassis state   
 **/
-
-short decode_odom_ultra_antiColBar_brake_cmd(unsigned char* buf,unsigned char len,unsigned char id = 0)
+short decode_odometry_cmd(unsigned char* buf,unsigned char len)
 {
 	
-	if(id==0)		//odom
-	{
-		double mileage =0.0; //mm
-		float angle = 0.0; //deg
-		std::cout<<"[odom_info] : ";
-		if((buf[len-5]&0xff)>>7==0)
-		{
-			mileage = (double)buf[len-8]+(buf[len-7]<<8)+(buf[len-6]<<16)+(buf[len-5]<<24);
-		}
-		else if((buf[len-5]&0xff)>>7==1)
-		{
-			mileage = -(double)buf[len-8]+(buf[len-7]<<6)+(buf[len-6]<<16)+((buf[len-5]&0x7f)<<24);
-		
-		}
-		else;
-	
-		if((buf[len-1]&0xff)>>7==0)
-		{
-			angle = (float)(buf[len-4]+(buf[len-3]<<8)+(buf[len-2]<<16)+(buf[len-1]<<24))*0.1;
-		}
-		else if((buf[len-1]&0xff)>>7==1)
-		{
-			angle = -(float)(buf[len-4]+(buf[len-3]<<6)+(buf[len-2]<<16)+((buf[len-1]&0x7f)<<24))*0.1;
-		
-		}
-		else;
-		
-		chassis_feedback_info.mileage = mileage;
-		chassis_feedback_info.angle = angle;
-		std::cout<<"current mileage(mm) : "<< mileage<<"\tcurrent angle(deg) : "<<angle<<std::endl;
-	
-	}
-	else if(id==1)
-	{
-		int i=0;
-		std::cout<<"[ultrasonic_info] : ";
-		for(int buf_index = 9;buf_index<len;buf_index+=2)	//len = 23
-		{
-			chassis_feedback_info.ultrasonic_distance[i] = uchar_to_ushort(buf,buf_index);	//mm
-			std::cout<<"ultrasonic["<<i<<"] : "<<chassis_feedback_info.ultrasonic_distance[i]<<"\t";
-			
-			if(chassis_feedback_info.ultrasonic_distance[i]<10)
-			{
-				return -1;
-			}
-			i++;
-		}
-		
-	}
-	else if(id==2)
-	{
-		std::cout<<"[antiCollisionBar_info] : ";
-		chassis_feedback_info.antiCollisionBarStatus = buf[len-1];
-		if(chassis_feedback_info.antiCollisionBarStatus==1)
-		{
-			std::cout<<"---!!!!!!!!!!!!!!!!collided!!!!!!!!!!!!!!---"<<std::endl;
-			return -2;
-			
-		}
-		else
-		{
-			std::cout<<"[no collision]"<<std::endl;
-		}
-	}
-	else if(id==3)
-	{
-		std::cout<<"[ultrasonicBrake_info] : ";
-		chassis_feedback_info.ultrasonicBrakeStatus = buf[len-1];
-		if(chassis_feedback_info.ultrasonicBrakeStatus==1)
-		{
-			std::cout<<"Braking from ultrasonic enabled."<<std::endl;
-		}
-		else
-		{
-			std::cout<<"Ultrasonic brake diable."<<std::endl;
-		}
-	}
-	else if(id==4)
-	{
-		std::cout<<"[antiCollisionBarBrake_info] : ";
-		chassis_feedback_info.antiCollisionBarBrakeStatus = buf[len-1];
-		if(chassis_feedback_info.antiCollisionBarBrakeStatus==1)
-		{
-			std::cout<<"Braking from antiCollisionBar enabled."<<std::endl;
-		}
-		else
-		{
-			std::cout<<"AntiCollisionBar brake diable."<<std::endl;
-		}
-	}
-	else;
+	double mileage =0.0; //mm
+	float angle = 0.0; //deg
+	std::cout<<"[odom_info] : ";
+
+	mileage = buf[len-8]+(buf[len-7]<<8)+(buf[len-6]<<16)+(buf[len-5]<<24);
+	angle = (buf[len-4]+(buf[len-3]<<8)+(buf[len-2]<<16)+(buf[len-1]<<24))*0.1;
+
+	chassis_feedback_info.mileage = mileage;
+	chassis_feedback_info.angle = angle;
+	std::cout<<"current mileage(mm) : "<< mileage<<"\tcurrent angle(deg) : "<<angle<<std::endl;
 	return 1;
 }
+/**@brief
+  *@decode_ultrasonic_cmd function : Designed to decode ultrasonic frame data
+  *
+  *@input :   
+  *			buf : uploaded frame data
+  *			len : length of frame data
+  *@output : 
+  *			chassis state   
+**/
+short int decode_ultrasonic_cmd(unsigned char* buf,unsigned char len)
+{
+	int i=0;
+	std::cout<<"[ultrasonic_info] : ";
+	for(int buf_index = 9;buf_index<len;buf_index+=2)	//len = 23
+	{
+		chassis_feedback_info.ultrasonic_distance[i] = uchar_to_ushort(buf,buf_index);	//mm
+		std::cout<<"ultrasonic["<<i<<"] : "<<chassis_feedback_info.ultrasonic_distance[i]<<"\t";
+			
+		if(chassis_feedback_info.ultrasonic_distance[i]<10)
+		{
+			return -1;
+		}
+			i++;
+	}
+	return 1;	
+}
+	
+/**@brief
+  *@decode_antiColBar_cmd function : Designed to decode anti-collision bar frame data
+  *
+  *@input :   
+  *			buf : uploaded frame data
+  *			len : length of frame data
+  *@output : 
+  *			chassis state   
+**/
+short int decode_antiColBar_cmd(unsigned char* buf,unsigned char len)
+{
+	std::cout<<"[antiCollisionBar_info] : ";
+	chassis_feedback_info.antiCollisionBarStatus = buf[len-1];
+	if(chassis_feedback_info.antiCollisionBarStatus==1)
+	{
+		std::cout<<"---!!!!!!!!!!!!!!!!collided!!!!!!!!!!!!!!---"<<std::endl;
+		return -2;		
+	}
+	else
+	{
+		std::cout<<"[no collision]"<<std::endl;
+	}
+	return 1;
+}
+	
+/**@brief
+  *@decode_ultrasonic_brake_cmd function : Designed to decode brake frame data related to ultrasonic .
+  *
+  *@input :   
+  *			buf : uploaded frame data
+  *			len : length of frame data
+  *@output : 
+  *			chassis state   
+**/
+short int decode_ultrasonic_brake_cmd(unsigned char* buf,unsigned char len)
+{
+		
+	std::cout<<"[ultrasonicBrake_info] : ";
+	chassis_feedback_info.ultrasonicBrakeStatus = buf[len-1];
+	if(chassis_feedback_info.ultrasonicBrakeStatus==1)
+	{
+		std::cout<<"Braking from ultrasonic enabled."<<std::endl;
+	}
+	else
+	{
+		std::cout<<"Ultrasonic brake diable."<<std::endl;
+	}
+	return 1;
+}
+/**@brief
+  *@decode_antiColBar_brake_cmd function : Designed to decode brake frame data related to anti-collision bar.
+  *
+  *@input :   
+  *			buf : uploaded frame data
+  *			len : length of frame data
+  *@output : 
+  *			chassis state   
+**/
+short decode_antiColBar_brake_cmd(unsigned char* buf,unsigned char len)
+{
+	std::cout<<"[antiCollisionBarBrake_info] : ";
+	chassis_feedback_info.antiCollisionBarBrakeStatus = buf[len-1];
+	if(chassis_feedback_info.antiCollisionBarBrakeStatus==1)
+	{
+		std::cout<<"Braking from antiCollisionBar enabled."<<std::endl;
+	}
+	else
+	{
+		std::cout<<"AntiCollisionBar brake diable."<<std::endl;
+	}
+	return 1;
+}
+
+
 /**@brief
   *@decode_driver_exception_cmd function : Designed to decode driver state 
   * 
@@ -561,7 +710,8 @@ short decode_cmd(unsigned char* buffer,unsigned char len)
 			if((buffer[crc_lowByteIndex+i]==(crc&Uint16_LowByte))&&(buffer[crc_highByteIndex+i]==((crc&Uint16_HighByte)>>8)))
 			{
 //				std::cout<<"[\033[32modometry_CmdId_crc_ok\033[0m] : ";
-				decode_odom_ultra_antiColBar_brake_cmd(buffer+i, odom_feedback_CmdLen,0);
+//				decode_odom_ultra_antiColBar_brake_cmd(buffer+i, odom_feedback_CmdLen,0);
+				decode_odometry_cmd( buffer+i,odom_feedback_CmdLen);
 				if(len>(odom_feedback_CmdLen+i))
 				{
 					i+=odom_CmdLen;
@@ -584,7 +734,7 @@ short decode_cmd(unsigned char* buffer,unsigned char len)
 				
 //				std::cout<<"[\033[32multrasonic_CmdId_crc_ok\033[0m] : ";
 				
-				decode_odom_ultra_antiColBar_brake_cmd(buffer+i, ultrasonic_feedback_CmdLen,1);	
+				decode_ultrasonic_cmd(buffer+i, ultrasonic_feedback_CmdLen);	
 //				i+=ultrasonic_feedback_CmdLen;
 //				flag=true;
 			}
@@ -602,16 +752,11 @@ short decode_cmd(unsigned char* buffer,unsigned char len)
 			if((buffer[crc_lowByteIndex+i]==(crc&Uint16_LowByte))&&(buffer[crc_highByteIndex+i]==((crc&Uint16_HighByte)>>8)))
 			{	
 //				std::cout<<"[\033[32mantiCollisionBar_CmdId_crc_ok\033[0m] : ";
-				
-				ret = decode_odom_ultra_antiColBar_brake_cmd(buffer+i,ultra_antiCol_brake_feedback_CmdLen,2);
-//				i+=ultra_antiCol_brake_feedback_CmdLen;
-//				flag=true;
-			
+				ret = decode_antiColBar_cmd(buffer+i,antiColBar_feedback_CmdLen);
 				if(ret<0)
 				{
 					return ret;
 				}
-				
 			}
 		}
 
@@ -627,7 +772,7 @@ short decode_cmd(unsigned char* buffer,unsigned char len)
 			if((buffer[crc_lowByteIndex+i]==(crc&Uint16_LowByte))&&(buffer[crc_highByteIndex+i]==((crc&Uint16_HighByte)>>8)))
 			{
 //				std::cout<<"[\033[32multrasonicBrake_CmdId_crc_ok\033[0m] : ";
-				decode_odom_ultra_antiColBar_brake_cmd( buffer+i,ultra_antiCol_brake_feedback_CmdLen,3);
+				decode_ultrasonic_brake_cmd( buffer+i,ultrasonic_brake_feedback_CmdLen);
 //				i+=ultra_antiCol_brake_feedback_CmdLen;
 //				flag=true;
 			
@@ -647,10 +792,9 @@ short decode_cmd(unsigned char* buffer,unsigned char len)
 			{
 //				std::cout<<"[\033[32mantiCollisionBarBrake_CmdId_crc_ok\033[0m] : ";
 				
-				decode_odom_ultra_antiColBar_brake_cmd(buffer+i, ultra_antiCol_brake_feedback_CmdLen,4);
+				decode_antiColBar_brake_cmd(buffer+i, antiCol_brake_feedback_CmdLen);
 //				i+=ultra_antiCol_brake_feedback_CmdLen;
 //				flag=true;
-			
 			}
 		}
 		else;
@@ -669,8 +813,6 @@ short decode_cmd(unsigned char* buffer,unsigned char len)
 				decode_driver_exception_cmd( buffer+i,driver_feedback_CmdLen);
 //				i+=driver_feedback_CmdLen;
 //				flag=true;
-			
-				
 			}
 		}
 		else;
@@ -703,5 +845,138 @@ short decode_cmd(unsigned char* buffer,unsigned char len)
 	}
 	return 0;	
 }
+/**
+  *@ udp_init function : init udp communication  
+  * 
+  *@ input :   
+  *			 
+  *@ output : 
+  *			  
+  *		 	   
+**/
+short int udp_init()
+{
+	if(udp_sock <0)
+	{
+		std::cout<<"[\033[31msocket unsuccessfully!\033[0m]";
+		exit(1);
+	}
+	memset(&servaddr,0,sizeof(servaddr));
+	servaddr.sin_family = AF_INET;                  /* Internet/IP */
+	servaddr.sin_port = htons(4002);       /* server port */
+    servaddr.sin_addr.s_addr = inet_addr("10.7.5.220");  /* IP address 本机地址，非主控板地址*/  
+
+    int ret_udp = bind(udp_sock, (struct sockaddr*)&servaddr,  sizeof(servaddr));
+    if (ret_udp < 0)
+	{
+		std::cout << "[\033[31mbind failed!\033[0m]" << std::endl;
+		close(udp_sock);
+		return -1;
+	}
+	else 
+	{
+		std::cout << "[\033[32mrecv ready!\033[0m]" << std::endl;
+	}
+	
+	return 1;
+}
+
+/**
+  *@ run function : cyclic function in main function   
+  * 
+  *@ input :   
+  *			steering_feedback_data : recevied frame data from chassis
+  *			recv_length : length of frame data 
+  *@ output : 
+  *			  	 	   
+**/
+void run(chassis_motion_cmd &motion_cmd_para )
+{
+	int ret=0;
+	short int recv_length=0;
+	static int number=0;
+	unsigned char steering_feedback_data[MAXLEN] = {0};
+	number++;
+	recv_length=recvfrom(udp_sock,steering_feedback_data, 1024, 0,(struct sockaddr*)&src_addr, &len);//&number
+	if(recv_length>0)
+	{
+	 	printf("motion_state : %.2x \t   vel_gear ：%.2x \n",motion_cmd_para.motion_state,motion_cmd_para.vel_gear);
+	 	printf("[%s:%d]",inet_ntoa(src_addr.sin_addr),ntohs(src_addr.sin_port));//打印消息发送方的ip与端口号
+	 	std::cout << "Received " << number << "th data (with length "<< recv_length<<")："<<std::endl;
+	 	//
+	 	for(int i=0;i<recv_length;i++)
+	 	{
+	 		printf("%.2x ",steering_feedback_data[i]);
+	 	}
+		std::cout<<std::endl;
+		ret = decode_cmd(steering_feedback_data, recv_length);
+		if(ret==-1)
+		{
+			//send_ultra_antiColBar_brake_cmd(antiCollisionBarBrake_CmdId,1);
+			encode_antiColBar_brake_cmd(1);
+		}
+		else if(ret==-2)
+		{
+//			send_ultra_antiColBar_brake_cmd(ultrasonicBrake_CmdId,1);
+			encode_ultrasonic_brake_cmd(1);
+		}
+		else
+		{	
+	//		send_ultra_antiColBar_brake_cmd(ultrasonicBrake_CmdId);
+			encode_ultrasonic_brake_cmd(0);
+			encode_antiColBar_brake_cmd(0);
+		}
+	 }
+	 else
+	{
+		std::cout << "No recevied data !" << std::endl;
+	}
+		
+	if(number%5==0)
+	{
+//		send_odom_ultra_antiColBar_check_cmd(odometry_CmdId);		//
+		encode_odometry_cmd();
+	}
+	if(number%7==0)
+	{
+//		send_odom_ultra_antiColBar_check_cmd(ultrasonic_CmdId);
+		encode_ultrasonic_cmd();	
+	}
+	if(number%9==0)
+	{
+//		send_odom_ultra_antiColBar_check_cmd(antiCollisionBar_CmdId);
+		encode_antiColBar_cmd();
+	}
+		
+	if(number%4==0)
+	{
+		encode_driver_exception_cmd(0);	//left-side wheel
+		encode_driver_exception_cmd(1);	//right-side wheel
+//		send_driver_exception_check_cmd(0);	left-side wheel
+//		send_driver_exception_check_cmd(1);	right-side wheel
+	}
+	if(number>10000)
+	{
+		number=0;
+	}	
+	std::cout<<std::endl;
+	
+}
+/**
+  *@ chassis_close_udp function : designed to close udp
+  * 
+  *@ input :   
+  *			
+  *@ output : 
+  *			  		
+  *  	   
+**/
+void chassis_close_udp(void)
+{
+	close(udp_sock);
+}
+
+
+
 
 
