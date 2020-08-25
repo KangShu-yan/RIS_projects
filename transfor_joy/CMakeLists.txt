@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(control_4ws4wd)
+project(transfor_joy)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
@@ -8,15 +8,9 @@ project(control_4ws4wd)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
-  geometry_msgs
-  std_msgs
   roscpp
   rospy
-  sensor_msgs
-  message_generation
-  
-#  message_filters
-#  dynamic_reconfigure
+  std_msgs
 )
 
 ## System dependencies are found with CMake's conventions
@@ -34,14 +28,14 @@ find_package(catkin REQUIRED COMPONENTS
 
 ## To declare and build messages, services or actions from within this
 ## package, follow these steps:
-## * Let MSG_DEP_SET be the set of pacontrollerckages whose message types you use in
+## * Let MSG_DEP_SET be the set of packages whose message types you use in
 ##   your messages/services/actions (e.g. std_msgs, actionlib_msgs, ...).
 ## * In the file package.xml:
 ##   * add a build_depend tag for "message_generation"
-##   * add a build_depend and a run_depend tag for each package in MSG_DEP_SET
+##   * add a build_depend and a exec_depend tag for each package in MSG_DEP_SET
 ##   * If MSG_DEP_SET isn't empty the following dependency has been pulled in
 ##     but can be declared for certainty nonetheless:
-##     * add a run_depend tag for "message_runtime"
+##     * add a exec_depend tag for "message_runtime"
 ## * In this file (CMakeLists.txt):
 ##   * add "message_generation" and every package in MSG_DEP_SET to
 ##     find_package(catkin REQUIRED COMPONENTS ...)
@@ -53,15 +47,12 @@ find_package(catkin REQUIRED COMPONENTS
 ##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)
 
 ## Generate messages in the 'msg' folder
-#add_message_files(
-#	FILES
-#	msg_chassis.msg
-#)
- 
-generate_messages(
-	DEPENDENCIES
-	std_msgs
-)
+# add_message_files(
+#   FILES
+#   Message1.msg
+#   Message2.msg
+# )
+
 ## Generate services in the 'srv' folder
 # add_service_files(
 #   FILES
@@ -79,14 +70,9 @@ generate_messages(
 ## Generate added messages and services with any dependencies listed here
 # generate_messages(
 #   DEPENDENCIES
-#   geometry_msgs
+#   std_msgs
 # )
-#generate_messages(
-#  DEPENDENCIES
-#  std_msgs
-#  geometry_msgs
-#  sensor_msgs
-#)
+
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
 ################################################
@@ -94,7 +80,7 @@ generate_messages(
 ## To declare and build dynamic reconfigure parameters within this
 ## package, follow these steps:
 ## * In the file package.xml:
-##   * add a build_depend and a run_depend tag for "dynamic_reconfigure"
+##   * add a build_depend and a exec_depend tag for "dynamic_reconfigure"
 ## * In this file (CMakeLists.txt):
 ##   * add "dynamic_reconfigure" to
 ##     find_package(catkin REQUIRED COMPONENTS ...)
@@ -117,9 +103,9 @@ generate_messages(
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-  INCLUDE_DIRS include
-#  LIBRARIES mbot_teleop
-  CATKIN_DEPENDS geometry_msgs roscpp rospy std_msgs message_runtime
+#  INCLUDE_DIRS include
+#  LIBRARIES transfor_joy
+#  CATKIN_DEPENDS roscpp rospy std_msgs
 #  DEPENDS system_lib
 )
 
@@ -130,23 +116,15 @@ catkin_package(
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 include_directories(
-  include
+# include
   ${catkin_INCLUDE_DIRS}
 )
 
 ## Declare a C++ library
 # add_library(${PROJECT_NAME}
-# 	
-#   src/${PROJECT_NAME}/wall_follower_node.cpp
+#   src/${PROJECT_NAME}/transfor_joy.cpp
 # )
-#add_library(class_tcp
-#	include/tcp_client/class_tcp.h	
-#	src/class_tcp.cpp
-#)
-add_library(deal_cmd
-	include/deal_cmd/deal_cmd.h	
-	src/deal_cmd.cpp
-)
+
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
 ## either from message generation or dynamic reconfigure
@@ -155,7 +133,7 @@ add_library(deal_cmd
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-# add_executable(${PROJECT_NAME}_node src/mbot_teleop_node.cpp)
+# add_executable(${PROJECT_NAME}_node src/transfor_joy_node.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -166,36 +144,16 @@ add_library(deal_cmd
 ## Add cmake target dependencies of the executable
 ## same as for the library above
 # add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_executable(transfor_joy src/transfor_joy.cpp)
+target_link_libraries(transfor_joy ${catkin_LIBRARIES})
+
+
 
 ## Specify libraries to link a library or executable target against
 # target_link_libraries(${PROJECT_NAME}_node
 #   ${catkin_LIBRARIES}
 # )
 
-
-#add_executable(cmd_vel_to_current_node src/cmd_vel_to_current_node.cpp
-#									 	src/class_tcp.cpp)
-#target_link_libraries(cmd_vel_to_current_node ${catkin_LIBRARIES})
-#add_dependencies(cmd_vel_to_current_node ${PROJECT_NAME}_generate_messages_cpp)
-
-#add_executable(suspension_control src/suspension_control.cpp
-#								  src/class_tcp.cpp)
-#target_link_libraries(suspension_control ${catkin_LIBRARIES})
-
-
-add_executable(fourSteering_node src/fourSteering_node.cpp
-								   src/deal_cmd.cpp)
-target_link_libraries(fourSteering_node ${catkin_LIBRARIES})
-add_dependencies(fourSteering_node ${PROJECT_NAME}_generate_messages_cpp)
-
-
-
-#add_executable(current_node src/current_node.cpp)
-#target_link_libraries(current_node ${catkin_LIBRARIES})
-#add_dependencies(current_node ${PROJECT_NAME}_generate_messages_cpp)
-
-
-#add_dependencies(wall_follower_node ${PROJECT_NAME}_generate_messages_cpp)
 #############
 ## Install ##
 #############
@@ -236,7 +194,7 @@ add_dependencies(fourSteering_node ${PROJECT_NAME}_generate_messages_cpp)
 #############
 
 ## Add gtest based cpp test target and link libraries
-# catkin_add_gtest(${PROJECT_NAME}-test test/test_mbot_teleop.cpp)
+# catkin_add_gtest(${PROJECT_NAME}-test test/test_transfor_joy.cpp)
 # if(TARGET ${PROJECT_NAME}-test)
 #   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
 # endif()
