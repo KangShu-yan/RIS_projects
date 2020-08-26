@@ -658,7 +658,7 @@ short decode_cmd(unsigned char* buffer,unsigned char len)
 	int crc_length = 0;
 	unsigned char index = 0;
 	unsigned char buffer_index[10];
-	int ret=0;
+	short int ret=0;
 	bool flag=false;
 	
 	short int test_val=0;
@@ -734,9 +734,13 @@ short decode_cmd(unsigned char* buffer,unsigned char len)
 				
 //				std::cout<<"[\033[32multrasonic_CmdId_crc_ok\033[0m] : ";
 				
-				decode_ultrasonic_cmd(buffer+i, ultrasonic_feedback_CmdLen);	
+				ret = decode_ultrasonic_cmd(buffer+i, ultrasonic_feedback_CmdLen);	
 //				i+=ultrasonic_feedback_CmdLen;
 //				flag=true;
+				if(ret<0)
+				{
+					return ret;
+				}
 			}
 		}
 		else;
@@ -894,7 +898,7 @@ void run(chassis_motion_cmd &motion_cmd_para )
 {
 	int ret=0;
 	short int recv_length=0;
-	static int number=0;
+	static int number=1;
 	unsigned char steering_feedback_data[MAXLEN] = {0};
 	number++;
 	recv_length=recvfrom(udp_sock,steering_feedback_data, 1024, 0,(struct sockaddr*)&src_addr, &len);//&number
@@ -912,39 +916,37 @@ void run(chassis_motion_cmd &motion_cmd_para )
 		ret = decode_cmd(steering_feedback_data, recv_length);
 		if(ret==-1)
 		{
-			//send_ultra_antiColBar_brake_cmd(antiCollisionBarBrake_CmdId,1);
-			encode_antiColBar_brake_cmd(1);
+			
+			encode_ultrasonic_brake_cmd(1);
 		}
 		else if(ret==-2)
 		{
-//			send_ultra_antiColBar_brake_cmd(ultrasonicBrake_CmdId,1);
-			encode_ultrasonic_brake_cmd(1);
+			encode_antiColBar_brake_cmd(1);
 		}
 		else
 		{	
-	//		send_ultra_antiColBar_brake_cmd(ultrasonicBrake_CmdId);
 			encode_ultrasonic_brake_cmd(0);
 			encode_antiColBar_brake_cmd(0);
 		}
-	 }
-	 else
+	}
+	else
 	{
 		std::cout << "No recevied data !" << std::endl;
 	}
-		
+//		
 	if(number%5==0)
 	{
-//		send_odom_ultra_antiColBar_check_cmd(odometry_CmdId);		//
 		encode_odometry_cmd();
+		encode_motion_cmd(motion_cmd_para);
 	}
 	if(number%7==0)
 	{
-//		send_odom_ultra_antiColBar_check_cmd(ultrasonic_CmdId);
+//		
 		encode_ultrasonic_cmd();	
 	}
 	if(number%9==0)
 	{
-//		send_odom_ultra_antiColBar_check_cmd(antiCollisionBar_CmdId);
+//		
 		encode_antiColBar_cmd();
 	}
 		
@@ -952,13 +954,14 @@ void run(chassis_motion_cmd &motion_cmd_para )
 	{
 		encode_driver_exception_cmd(0);	//left-side wheel
 		encode_driver_exception_cmd(1);	//right-side wheel
-//		send_driver_exception_check_cmd(0);	left-side wheel
-//		send_driver_exception_check_cmd(1);	right-side wheel
+//		
 	}
 	if(number>10000)
 	{
-		number=0;
+		number=1;
 	}	
+	
+	
 	std::cout<<std::endl;
 	
 }

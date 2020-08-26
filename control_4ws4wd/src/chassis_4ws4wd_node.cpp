@@ -51,6 +51,7 @@ void joyCallback(const sensor_msgs::Joy::ConstPtr& joy)
 			motion_cmd_para.vel_gear = 1;	//1档
 			l_scale_=l_scale_1;
 			w_scale_=w_scale_1;
+		
 		}
 		else if(joy->buttons[1])	//B键
 		{
@@ -105,7 +106,7 @@ void joyCallback(const sensor_msgs::Joy::ConstPtr& joy)
 	motion_cmd_para.w = twist.angular.z;
 	//twist.linear.x = max_limit(twist.linear.x,100);	//< = 100mm/s
 	//twist.angular.z = max_limit(twist.angular.z,30);// 30deg/s
-	encode_motion_cmd(motion_cmd_para);
+	
 	vel_pub_.publish(twist);
 }
 
@@ -123,10 +124,19 @@ int main(int argc, char **argv)
 	{
 		return -1;
 	}
+	
+	
 	//define a subscriber
 	ros::Subscriber joy_sub_; 
 	vel_pub_ = nh_.advertise<geometry_msgs::Twist>("cmd_vel", 200); 
 	joy_sub_ = nh_.subscribe<sensor_msgs::Joy>("joy", 10, joyCallback); 
+	
+//	led_control_para.channel = 1 ;
+//	led_control_para.mode =!led_control_para.mode;
+////	led_control_para.mode = 0x00;
+//	led_control_para.on_lightness=1;
+//	encode_led_cmd(led_control_para);
+	
     while(ros::ok())
 	{
 	 	run(motion_cmd_para);
