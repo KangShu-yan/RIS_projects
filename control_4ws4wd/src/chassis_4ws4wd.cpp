@@ -896,7 +896,7 @@ short int udp_init()
 **/
 void run(chassis_motion_cmd &motion_cmd_para )
 {
-	int ret=0;
+	short int ret=0;
 	short int recv_length=0;
 	static int number=1;
 	unsigned char steering_feedback_data[MAXLEN] = {0};
@@ -916,7 +916,6 @@ void run(chassis_motion_cmd &motion_cmd_para )
 		ret = decode_cmd(steering_feedback_data, recv_length);
 		if(ret==-1)
 		{
-			
 			encode_ultrasonic_brake_cmd(1);
 		}
 		else if(ret==-2)

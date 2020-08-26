@@ -66,6 +66,8 @@ void joyCallback(const sensor_msgs::Joy::ConstPtr& joy)
 		else if(joy->buttons[9])	//start
 		{
 			motion_cmd_para.motion_state = 1;		//run
+			encode_antiColBar_brake_cmd(0);
+			encode_ultrasonic_brake_cmd(0);
 		}
 		
 		else if(joy->buttons[8]||joy->axes[5])  //back 
