@@ -29,36 +29,8 @@ add_executable(d_motor src/nodes/d_motor_node.cpp src/d_motor.cpp)
 target_link_libraries(d_motor ${catkin_LIBRARIES})
 add_dependencies(d_motor debug_motor_gencfg debug_motor_generate_messages_cpp)
 
-#add_executable(listener src/listener.cpp src/nodes/listener_node.cpp)
-#target_link_libraries(listener ${catkin_LIBRARIES})
-#add_dependencies(listener node_example_gencfg node_example_generate_messages_cpp)
-
-#if(CATKIN_ENABLE_TESTING)
-#  find_package(rostest REQUIRED)
-
-#  add_rostest_gtest(test_node_example_talker test/test_node_example_talker.test test/test_node_example_talker.cpp)
-#  target_link_libraries(test_node_example_talker ${catkin_LIBRARIES})
-#  add_dependencies(test_node_example_talker node_example_generate_messages_cpp)
-
-#  add_rostest_gtest(test_node_example_listener test/test_node_example_listener.test test/test_node_example_listener.cpp)
-#  target_link_libraries(test_node_example_listener ${catkin_LIBRARIES})
-#  add_dependencies(test_node_example_listener node_example_generate_messages_cpp)
-#endif()
+#add_executable(r_motor src/r_motor.cpp src/nodes/r_motor_node.cpp)
+#target_link_libraries(run_motor ${catkin_LIBRARIES})
+#add_dependencies(r_motor debug_motor_gencfg debug_motor_generate_messages_cpp)
 
 
-#install(DIRECTORY include/${PROJECT_NAME}/
-#  DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
-#  FILES_MATCHING PATTERN "*.h"
-#)
-
-#catkin_install_python(PROGRAMS src/pylistener.py src/pytalker.py DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
-
-#install(TARGETS listener talker
-#  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-#  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-#  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-#)
-
-#install(DIRECTORY launch
-#  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
-#)
