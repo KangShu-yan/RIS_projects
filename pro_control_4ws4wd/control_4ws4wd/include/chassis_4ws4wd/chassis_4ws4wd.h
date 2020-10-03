@@ -8,6 +8,13 @@
 */
 
 // System Includes
+#include <ros/ros.h>
+#include <geometry_msgs/Twist.h>
+#include <sensor_msgs/Joy.h> 
+#include <stdbool.h>
+#include <iostream>
+#include <sstream>
+
 #include <sys/socket.h>
 #include <netdb.h>
 #include <netinet/in.h>
@@ -19,6 +26,8 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <iostream>
+
+
 
 #define GS_ascii					0x5347
 #define motion_CmdId				0x7426
@@ -156,14 +165,14 @@ typedef struct ledPara_
 */
 unsigned short int CRC16(const unsigned char *buffer, unsigned int len);
 unsigned short int uchar_to_ushort(unsigned char sign,unsigned char i);
-unsigned char* encode_motion_cmd(chassis_motion_cmd &motion_cmd_para);
-unsigned char* encode_odometry_cmd(void);
-unsigned char* encode_ultrasonic_cmd(void);
-unsigned char* encode_antiColBar_cmd(void);
-unsigned char* encode_ultrasonic_brake_cmd(unsigned char cmd);
-unsigned char* encode_antiColBar_brake_cmd(unsigned char cmd);
-unsigned char* encode_driver_exception_cmd(unsigned char driverSide);
-unsigned char* encode_led_cmd(ledParam led_para_);
+void  encode_motion_cmd(chassis_motion_cmd &motion_cmd_para);
+void encode_odometry_cmd(void);
+void encode_ultrasonic_cmd(void);
+void encode_antiColBar_cmd(void);
+void encode_ultrasonic_brake_cmd(unsigned char cmd);
+void encode_antiColBar_brake_cmd(unsigned char cmd);
+void encode_driver_exception_cmd(unsigned char driverSide);
+void encode_led_cmd(ledParam led_para_);
 
 void decode_motion_cmd(unsigned char* buf,unsigned char len);
 short decode_odometry_cmd(unsigned char* buf,unsigned char len);
@@ -177,7 +186,9 @@ void decode_led_cmd(unsigned char* buf,unsigned char len);
 short int decode_cmd(unsigned char* buffer,unsigned char len);
 
 short int udp_init(void);
-void run(chassis_motion_cmd &motion_cmd_para);
-void chassis_close_udp(void);
+void param_init(ros::NodeHandle &nh_);
 
+void run();
+void chassis_close_udp(void);
+void joyCallback(const sensor_msgs::Joy::ConstPtr& joy); 
 #endif //PROJECT_DEAL_CMD_H

@@ -1,13 +1,19 @@
-
-
-#include <chassis_4ws4wd/chassis_4ws4wd.h>
-
+//chassis_4ws4wd.cpp
+#include "chassis_4ws4wd/chassis_4ws4wd.h"
 int udp_sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 struct sockaddr_in servaddr;
 struct sockaddr_in  src_addr = { 0 };
 socklen_t len = sizeof(src_addr);
 
 chassis_info_check_feedback_ chassis_feedback_info = {0};
+double l_scale_1=0.0, w_scale_1=0.0; 
+double l_scale_2=0.0, w_scale_2=0.0; 
+
+static char motion_state = 0;  
+char vel_gear = 0;
+ledParam led_control_para ={0};
+chassis_motion_cmd motion_cmd_para={0};
+ros::Publisher vel_pub_;
 /**
  * \file
 * @brief Source code for this .cpp that does cmd encode and decode 
@@ -68,7 +74,7 @@ unsigned short int uchar_to_ushort(unsigned char *buf,unsigned char i)
   *@ output : 
   *			send_buf : issue linear velocity along axis and angular velocity along axis z to the chassis
 **/
-unsigned char* encode_motion_cmd(chassis_motion_cmd &motion_cmd_para)
+void encode_motion_cmd(chassis_motion_cmd &motion_cmd_para)
 {
 	int ret = 0;
 	short int linear_x = motion_cmd_para.v;
@@ -79,7 +85,6 @@ unsigned char* encode_motion_cmd(chassis_motion_cmd &motion_cmd_para)
 	unsigned short int crc = 0;
 	short int i=0;
 	int len = 0;
-	
 	send_buf[i++] = (unsigned short int)GS_ascii&Uint16_LowByte;		//"GS"
 	send_buf[i++] = (unsigned short int)(GS_ascii&Uint16_HighByte)>>8;	
 	send_buf[i++] = (unsigned short int)motion_CmdLen&Uint16_LowByte;		//Size
@@ -113,7 +118,6 @@ unsigned char* encode_motion_cmd(chassis_motion_cmd &motion_cmd_para)
 		send_buf[i++] = angular_z&Uint16_LowByte;	//angular velocity	0.1deg/s
 		send_buf[i++] = (angular_z&Uint16_HighByte)>>8;
 	}
-//	
 	len = motion_CmdLen-8;
 	crc = CRC16(send_buf+8, len);	//仅针对数据部分
 	send_buf[6] = (unsigned short int)crc&0x00ff;		//CRC 10 C0  09 00 00 00  
@@ -129,9 +133,7 @@ unsigned char* encode_motion_cmd(chassis_motion_cmd &motion_cmd_para)
 	printf("\n");
 //	printf("motion_CmdLen = %d\t,sizeof(send_buf) = %d\t",(unsigned int)motion_CmdLen,sizeof(send_buf));
 	ret = sendto(udp_sock, send_buf,motion_CmdLen, 0, (struct sockaddr *)&src_addr,sizeof(src_addr)); 
-
-	return send_buf;
-	
+	delete[] send_buf;
 }
 /**
   *@brief 
@@ -143,7 +145,7 @@ unsigned char* encode_motion_cmd(chassis_motion_cmd &motion_cmd_para)
   *@output : 
   *			send_buf : a frame data to be issued to chassis 
 **/
-unsigned char* encode_odometry_cmd(void)
+void encode_odometry_cmd(void)
 {
 	unsigned char *send_buf = new unsigned char[odom_CmdLen];	//运动控制指令有13个字节
 	unsigned short int crc = 0;
@@ -165,7 +167,7 @@ unsigned char* encode_odometry_cmd(void)
 	send_buf[7] = (unsigned short)(crc&0xff00)>>8;
 	
 	ret = sendto(udp_sock, send_buf, odom_CmdLen, 0, (struct sockaddr *)&src_addr,sizeof(src_addr)); 
-	return send_buf;
+	delete[] send_buf;
 }
 /**
   *@brief 
@@ -177,7 +179,7 @@ unsigned char* encode_odometry_cmd(void)
   *@output : 
   *			send_buf : a frame data to be issued to chassis 
 **/
-unsigned char* encode_ultrasonic_cmd()
+void encode_ultrasonic_cmd()
 {
 	unsigned char *send_buf = new unsigned char[ultrasonic_CmdLen];	//运动控制指令有13个字节
 	unsigned short int crc = 0;
@@ -198,7 +200,7 @@ unsigned char* encode_ultrasonic_cmd()
 	send_buf[6] = (unsigned short)crc&0x00ff;		//CRC 10 C0  09 00 00 00  
 	send_buf[7] = (unsigned short)(crc&0xff00)>>8;
 	ret = sendto(udp_sock, send_buf, ultrasonic_CmdLen, 0, (struct sockaddr *)&src_addr,sizeof(src_addr)); 
-	return send_buf;
+	delete[] send_buf;
 }
 /**
   *@brief 
@@ -210,7 +212,7 @@ unsigned char* encode_ultrasonic_cmd()
   *@output : 
   *			send_buf : a frame data to be issued to chassis 
 **/
-unsigned char* encode_antiColBar_cmd(void)
+void encode_antiColBar_cmd(void)
 {
 	unsigned char *send_buf = new unsigned char[antiCollisionBar_CmdLen];	//运动控制指令有13个字节
 	unsigned short int crc = 0;
@@ -231,7 +233,7 @@ unsigned char* encode_antiColBar_cmd(void)
 	send_buf[6] = (unsigned short)crc&0x00ff;		//CRC 10 C0  09 00 00 00  
 	send_buf[7] = (unsigned short)(crc&0xff00)>>8;
 	ret = sendto(udp_sock, send_buf, antiCollisionBar_CmdLen, 0, (struct sockaddr *)&src_addr,sizeof(src_addr)); 
-	return send_buf;
+	delete[] send_buf;
 }
 /**
   *@brief 
@@ -244,7 +246,7 @@ unsigned char* encode_antiColBar_cmd(void)
   *@output : 
   *			send_buf : a frame data to be issued to chassis 
 **/
-unsigned char* encode_ultrasonic_brake_cmd(unsigned char cmd)//
+void encode_ultrasonic_brake_cmd(unsigned char cmd)//
 {
 	unsigned char *send_buf = new unsigned char[ultra_antiCol_brake_CmdLen];	//运动控制指令有13个字节
 	unsigned short crc = 0;
@@ -265,7 +267,7 @@ unsigned char* encode_ultrasonic_brake_cmd(unsigned char cmd)//
 	crc = CRC16(send_buf+8, len);	//仅针对数据部分
 	send_buf[6] = (unsigned short)crc&0x00ff;		//CRC 10 C0  09 00 00 00  
 	send_buf[7] = (unsigned short)(crc&0xff00)>>8;
-	return send_buf;
+	delete[]  send_buf;
 }
 /**
   *@brief 
@@ -278,7 +280,7 @@ unsigned char* encode_ultrasonic_brake_cmd(unsigned char cmd)//
   *@output : 
   *			send_buf : a frame data to be issued to chassis 
 **/
-unsigned char* encode_antiColBar_brake_cmd(unsigned char cmd)//
+void encode_antiColBar_brake_cmd(unsigned char cmd)//
 {
 	unsigned char *send_buf = new unsigned char[ultra_antiCol_brake_CmdLen];	//运动控制指令有13个字节
 	unsigned short crc = 0;
@@ -299,10 +301,8 @@ unsigned char* encode_antiColBar_brake_cmd(unsigned char cmd)//
 	crc = CRC16(send_buf+8, len);	//仅针对数据部分
 	send_buf[6] = (unsigned short)crc&0x00ff;		//CRC 10 C0  09 00 00 00  
 	send_buf[7] = (unsigned short)(crc&0xff00)>>8;
-	return send_buf;
+	delete[]  send_buf;
 }
-
-
 /**
   *@brief 
   *@encode_driver_exception_cmd function : Designed to encode driver exception cmd
@@ -313,7 +313,7 @@ unsigned char* encode_antiColBar_brake_cmd(unsigned char cmd)//
   *@output : 
   *			send_buf : a frame data to be issued to chassis 
 **/
-unsigned char* encode_driver_exception_cmd(unsigned char driverSide)	//right side and left side
+void encode_driver_exception_cmd(unsigned char driverSide)	//right side and left side
 {
 	unsigned char *send_buf = new unsigned char[driver_CmdLen];	//运动控制指令有13个字节
 	unsigned short int crc = 0;
@@ -329,15 +329,12 @@ unsigned char* encode_driver_exception_cmd(unsigned char driverSide)	//right sid
 	send_buf[i++] = 0x00;		//CRC 10 C0  09 00 00 00  
 	send_buf[i++] = 0x00;
 	send_buf[i++] = driverSide&0xff;
-	
 	len =driver_CmdLen-8;
 	crc = CRC16(send_buf+8, len);	//仅针对数据部分
 	send_buf[6] = (unsigned short int)crc&0x00ff;		//CRC 10 C0  09 00 00 00  
 	send_buf[7] = (unsigned short int)(crc&0xff00)>>8;
-	
 	ret = sendto(udp_sock, send_buf, driver_CmdLen, 0, (struct sockaddr *)&src_addr,sizeof(src_addr)); 
-	
-	return send_buf;
+	delete[]  send_buf;
 }
 /**
   *@brief 
@@ -349,7 +346,7 @@ unsigned char* encode_driver_exception_cmd(unsigned char driverSide)	//right sid
   *@output : 
   *			send_buf : an frame data to be issued to chassis 
 **/
-unsigned char* encode_led_cmd(ledParam led_para_)
+void encode_led_cmd(ledParam led_para_)
 {
 	unsigned char *send_buf = new unsigned char[led_CmdLen];	//运动控制指令有13个字节
 	unsigned short int crc = 0;
@@ -377,7 +374,6 @@ unsigned char* encode_led_cmd(ledParam led_para_)
 	send_buf[i++] = (unsigned char)led_para_.lightness_min&0xff;
 	send_buf[i++] = (unsigned char)led_para_.lightness_max&0xff;
 	
-	
 	len = led_CmdLen-8;
 	crc = CRC16(send_buf+8, len);	//仅针对数据部分
 	send_buf[6] = (unsigned short int )crc&0x00ff;		//CRC 10 C0  09 00 00 00  
@@ -391,9 +387,7 @@ unsigned char* encode_led_cmd(ledParam led_para_)
 		printf("%.2x ",send_buf[i]);
 	}
 	std::cout<<std::endl;
-	return send_buf;
 }
-
 /**@brief
   *@decode_motion_cmd function : Designed to decode v and w 
   *
@@ -405,24 +399,17 @@ unsigned char* encode_led_cmd(ledParam led_para_)
   *			v : feedback linear velocity along axis x 
   *         w : feedbakc angular velocity along axis z 
 **/
-
 void decode_motion_cmd(unsigned char* buf,unsigned char len)
 {
 	short int v=0;	//mm/s
 	short int w=0;	//deg/s
-//	float float_v=0.0;
-//	float float_w=0.0;
-//	char v_high_byte=0;
-//	char w_high_byte=0;
 	if((buf[len-3]&0xff)>>7==1)
 	{
-
 		v =- (buf[len-4]+(buf[len-3]&0x7f)*256);
 	}
 	else if((buf[len-3]&0xff)>>7==0)
 	{
 		v = (buf[len-4]+(buf[len-3]&0xff)*256);
-		
 	}
 	else;
 	
@@ -434,7 +421,6 @@ void decode_motion_cmd(unsigned char* buf,unsigned char len)
 	else if((buf[len-1]&0xff)>>7==0)
 	{
 		w = (buf[len-4]+(buf[len-1]&0xff)*256);
-		
 	}
 	else;
 //	printf("%d ",(char)buf[len-3]);
@@ -521,7 +507,6 @@ short int decode_antiColBar_cmd(unsigned char* buf,unsigned char len)
 	}
 	return 1;
 }
-	
 /**@brief
   *@decode_ultrasonic_brake_cmd function : Designed to decode brake frame data related to ultrasonic .
   *
@@ -533,7 +518,6 @@ short int decode_antiColBar_cmd(unsigned char* buf,unsigned char len)
 **/
 short int decode_ultrasonic_brake_cmd(unsigned char* buf,unsigned char len)
 {
-		
 	std::cout<<"[ultrasonicBrake_info] : ";
 	chassis_feedback_info.ultrasonicBrakeStatus = buf[len-1];
 	if(chassis_feedback_info.ultrasonicBrakeStatus==1)
@@ -569,8 +553,6 @@ short decode_antiColBar_brake_cmd(unsigned char* buf,unsigned char len)
 	}
 	return 1;
 }
-
-
 /**@brief
   *@decode_driver_exception_cmd function : Designed to decode driver state 
   * 
@@ -578,10 +560,8 @@ short decode_antiColBar_brake_cmd(unsigned char* buf,unsigned char len)
   *@input :   
   *			buf : uploaded frame data
   *			len : length of frame data
-  *
   *@output : 
-  *			chassis state
-  *  	   
+  *			chassis state 	   
 **/
 void decode_driver_exception_cmd(unsigned char* buf,unsigned char len)
 {
@@ -615,7 +595,6 @@ void decode_driver_exception_cmd(unsigned char* buf,unsigned char len)
 	{
 		std::cout<<"Drivers are fine. "<<std::endl;
 	}
-	
 }
 /**@brief
   *@decode_led_cmd function : Designed to led state
@@ -623,10 +602,8 @@ void decode_driver_exception_cmd(unsigned char* buf,unsigned char len)
   *@input :   
   *			buf : uploaded frame data
   *			len : length of frame data
-  *
   *@output : 
-  *			led control state
-  *  	   
+  *			led control state 	   
 **/
 void decode_led_cmd(unsigned char* buf,unsigned char len)
 {
@@ -648,7 +625,6 @@ void decode_led_cmd(unsigned char* buf,unsigned char len)
   *@input :   
   *			buf : uploaded frame data
   *			len : length of frame data
-  *
   *@output : 		
   *  	   
 **/
@@ -660,14 +636,7 @@ short decode_cmd(unsigned char* buffer,unsigned char len)
 	unsigned char buffer_index[10];
 	short int ret=0;
 	bool flag=false;
-	
 	short int test_val=0;
-//	std::cout<<"decode_cmd"<<std::endl;
-//	for(int i=0;i<len;i++)
-//	{
-//		printf("%.2x ",buffer[i]);
-//	}
-//	std::cout<<std::endl;
 	for(int i=0;i+8<len;i++)
 	{
 	//	motion
@@ -675,14 +644,11 @@ short decode_cmd(unsigned char* buffer,unsigned char len)
 //		printf("(motion_CmdId&Uint16_LowByte) = %.2x \n",(motion_CmdId&Uint16_LowByte));
 //		printf("buffer[cmdId_highByteIndex+i] = %.2x \n",buffer[cmdId_highByteIndex+i]);
 //		printf("(motion_CmdId&Uint16_HighByte>>8) = %.2x \n",((motion_CmdId&Uint16_HighByte)>>8));
-		
 		if((buffer[cmdId_lowByteIndex+i]==(unsigned char)(motion_CmdId&Uint16_LowByte))&&(buffer[cmdId_highByteIndex+i]==(unsigned char)((motion_CmdId&Uint16_HighByte)>>8)))
 		{	
-		
 			std::cout<<"[\033[32mdecode motion_CmdId\033[0m] : "<<std::endl;
 //			std::cin>>test_val;
 //			std::cout<<"test_val = "<<test_val<<std::endl;
-			
 			crc_length = motion_feedback_CmdLen-8;
 			std::cout<<"crc_length = "<<crc_length<<std::endl;
 			crc = CRC16(buffer+8+i, crc_length);	//仅针对数据部分
@@ -720,7 +686,6 @@ short decode_cmd(unsigned char* buffer,unsigned char len)
 			}
 		}
 		else;
-		
 		// ultrasonic
 		if((buffer[cmdId_lowByteIndex+i]==(ultrasonic_CmdId&Uint16_LowByte))&&(buffer[cmdId_highByteIndex+i]==((ultrasonic_CmdId&Uint16_HighByte)>>8)))
 		{
@@ -731,9 +696,7 @@ short decode_cmd(unsigned char* buffer,unsigned char len)
 			
 			if((buffer[crc_lowByteIndex+i]==(crc&Uint16_LowByte))&&(buffer[crc_highByteIndex+i]==((crc&Uint16_HighByte)>>8)))
 			{
-				
 //				std::cout<<"[\033[32multrasonic_CmdId_crc_ok\033[0m] : ";
-				
 				ret = decode_ultrasonic_cmd(buffer+i, ultrasonic_feedback_CmdLen);	
 //				i+=ultrasonic_feedback_CmdLen;
 //				flag=true;
@@ -744,7 +707,6 @@ short decode_cmd(unsigned char* buffer,unsigned char len)
 			}
 		}
 		else;
-		
 		//antiCollisionBar_check_feedback
 		if((buffer[cmdId_lowByteIndex]==(antiCollisionBar_CmdId&Uint16_LowByte))&&(buffer[cmdId_highByteIndex]==((antiCollisionBar_CmdId&Uint16_HighByte)>>8)))
 		{
@@ -763,7 +725,6 @@ short decode_cmd(unsigned char* buffer,unsigned char len)
 				}
 			}
 		}
-
 		else;
 		//ultrasonicBrake_feedback
 		if((buffer[cmdId_lowByteIndex+i]==(ultrasonicBrake_CmdId&Uint16_LowByte))&&(buffer[cmdId_highByteIndex+i]==((ultrasonicBrake_CmdId&Uint16_HighByte)>>8)))
@@ -834,18 +795,11 @@ short decode_cmd(unsigned char* buffer,unsigned char len)
 				decode_led_cmd(buffer+i,led_feedback_CmdLen);
 //				i+=led_CmdLen;
 //				flag=true;
-			
 			}
 		}
 		else 
 		{
-//			if(!flag)
-//			{
-//				i++;
-//			}
-			
 		}
-		
 	}
 	return 0;	
 }
@@ -884,17 +838,69 @@ short int udp_init()
 	
 	return 1;
 }
+/**
+  *@ param_init function : init basic parameters of joystick  
+  * 
+  *@ input :   
+  *			nh_: node handler  
+  *@ output : 
+  *			  	 	   
+**/
+void param_init(ros::NodeHandle &nh_)
+{
+	bool ifGetPara;
 
+	ifGetPara = ros::param::get("/chassis_4ws4wd/l_scale_1", l_scale_1);//match with<node  * name  />
+	if(ifGetPara)
+	{
+		ROS_INFO("Got l_scale_1");
+	}
+	else
+	{
+		ROS_ERROR_STREAM("Didn't get l_scale_1");
+	}
+	ifGetPara = ros::param::get("/chassis_4ws4wd/l_scale_2", l_scale_2);
+	if(ifGetPara)
+	{
+		ROS_INFO("Got l_scale_2");
+	}
+	else
+	{
+		ROS_ERROR_STREAM("Didn't get l_scale_2");
+	}
+	ifGetPara = ros::param::get("/chassis_4ws4wd/w_scale_1", w_scale_1);
+	if(ifGetPara)
+	{
+		ROS_INFO("Got w_scale_1");
+	}
+	else
+	{
+		ROS_ERROR_STREAM("Didn't get w_scale_1");
+	}
+	ifGetPara = ros::param::get("/chassis_4ws4wd/w_scale_2", w_scale_2);
+	if(ifGetPara)
+	{
+		ROS_INFO("Got w_scale_2");
+	}
+	else
+	{
+		ROS_ERROR_STREAM("Didn't get w_scale_2");
+	}
+	//define a subscriber
+	ros::Subscriber joy_sub_; 
+	vel_pub_ = nh_.advertise<geometry_msgs::Twist>("cmd_vel", 200); 
+	joy_sub_ = nh_.subscribe<sensor_msgs::Joy>("joy", 10, joyCallback); 
+	
+}
 /**
   *@ run function : cyclic function in main function   
   * 
   *@ input :   
-  *			steering_feedback_data : recevied frame data from chassis
-  *			recv_length : length of frame data 
+  *					
   *@ output : 
   *			  	 	   
 **/
-void run(chassis_motion_cmd &motion_cmd_para )
+void run()
 {
 	short int ret=0;
 	short int recv_length=0;
@@ -907,7 +913,6 @@ void run(chassis_motion_cmd &motion_cmd_para )
 	 	printf("motion_state : %.2x \t   vel_gear ：%.2x \n",motion_cmd_para.motion_state,motion_cmd_para.vel_gear);
 	 	printf("[%s:%d]",inet_ntoa(src_addr.sin_addr),ntohs(src_addr.sin_port));//打印消息发送方的ip与端口号
 	 	std::cout << "Received " << number << "th data (with length "<< recv_length<<")："<<std::endl;
-	 	//
 	 	for(int i=0;i<recv_length;i++)
 	 	{
 	 		printf("%.2x ",steering_feedback_data[i]);
@@ -931,38 +936,30 @@ void run(chassis_motion_cmd &motion_cmd_para )
 	else
 	{
 		std::cout << "No recevied data !" << std::endl;
-	}
-//		
+	}	
 	if(number%5==0)
 	{
 		encode_odometry_cmd();
 		encode_motion_cmd(motion_cmd_para);
 	}
 	if(number%7==0)
-	{
-//		
+	{	
 		encode_ultrasonic_cmd();	
 	}
 	if(number%9==0)
-	{
-//		
+	{	
 		encode_antiColBar_cmd();
 	}
-		
 	if(number%4==0)
 	{
 		encode_driver_exception_cmd(0);	//left-side wheel
-		encode_driver_exception_cmd(1);	//right-side wheel
-//		
+		encode_driver_exception_cmd(1);	//right-side wheel	
 	}
 	if(number>10000)
 	{
 		number=1;
 	}	
-	
-	
 	std::cout<<std::endl;
-	
 }
 /**
   *@ chassis_close_udp function : designed to close udp
@@ -970,13 +967,94 @@ void run(chassis_motion_cmd &motion_cmd_para )
   *@ input :   
   *			
   *@ output : 
-  *			  		
-  *  	   
+  *			  			   
 **/
 void chassis_close_udp(void)
 {
 	close(udp_sock);
 }
+/**
+  *@ joyCallback function : subscribe joy  
+  *
+  *@ input :   
+  *			joy : command from operator
+  *@ output : 
+  *			   	   
+**/
+void joyCallback(const sensor_msgs::Joy::ConstPtr& joy) 
+{
+
+   	static int count=0;
+	static double l_scale_=0.5, w_scale_=0.5; 
+	geometry_msgs::Twist twist; 
+	//0 : stop 1 : run 2 : brake 
+//	std::cout<<"transfor_joy"<<std::endl; 
+	//ROS_INFO("transfor_joy_callback"); 
+	if(joy->buttons[3])		//X键	 3是Y	7 start	//white beitong joystick
+	{
+		if(joy->buttons[2])	//A键		
+		{
+//			l_scale_=0.25*32767.;
+			motion_cmd_para.vel_gear = 1;	//1档
+			l_scale_=l_scale_1;
+			w_scale_=w_scale_1;
+		}
+		else if(joy->buttons[1])	//B键
+		{
+			motion_cmd_para.vel_gear = 2;	//2档
+			l_scale_=l_scale_2;
+			w_scale_=w_scale_2;
+		}
+		else if(joy->buttons[0])	//Y
+		{
+			motion_cmd_para.motion_state=0;			//stop
+		}
+		else if(joy->buttons[9])	//start
+		{
+			motion_cmd_para.motion_state = 1;		//run
+			encode_antiColBar_brake_cmd(0);
+			encode_ultrasonic_brake_cmd(0);
+		}
+		else if(joy->buttons[8]||joy->axes[5])  //back 
+		{
+			std::cout<<"[\033[33mled_setting\033[0m] : "<<std::endl;
+			led_control_para.channel = 1 ;
+			led_control_para.mode = !led_control_para.mode;
+//			led_control_para.mode = 0x00;
+			led_control_para.on_lightness=1;
+			if(joy->axes[5]==1&&led_control_para.on_lightness<10)
+			{
+				led_control_para.on_lightness+=1;	//0-10个等级
+			}
+			else if(joy->axes[5]==-1&&led_control_para.on_lightness>0)
+			{
+				led_control_para.on_lightness+=1;	//0-10个等级
+			}
+			else;
+//			led_control_para.on_lightness=5;	//0-10个等级
+			printf("%.2x \n",led_control_para.mode);	
+			//Sending led cmd toward chassis.
+			encode_led_cmd(led_control_para);
+		}
+		else;
+		twist.angular.z = w_scale_*joy->axes[0]; //左摇杆左右
+		twist.linear.x = l_scale_*joy->axes[1]; //左摇杆前后
+	}
+	else if(joy->buttons[6]||joy->buttons[7])	//LT  RT 
+	{
+			motion_cmd_para.motion_state = 2;	//brake
+	}
+	else
+	{
+		twist.angular.z = 0; 
+		twist.linear.x = 0; 
+	} 
+	motion_cmd_para.v = twist.linear.x; 
+	motion_cmd_para.w = twist.angular.z;
+	vel_pub_.publish(twist);
+}
+//end of chassis_4ws4wd.cpp
+
 
 
 
