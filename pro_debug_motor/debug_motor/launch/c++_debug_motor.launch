@@ -6,7 +6,7 @@
   <arg name="message" default="hello"/>
   <arg name="rate" default="1.0"/>
 
-  <!-- The talker node will publish a custom message. -->
+  <!-- The debug_motor node will publish a custom message. -->
   <node pkg="debug_motor" type="d_motor" name="d_motor" output= "screen">
     <param name="a" value="$(arg a)"/>
     <param name="b" value="$(arg b)"/>

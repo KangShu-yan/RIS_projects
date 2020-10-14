@@ -1,5 +1,6 @@
 #include <debug_motor/d_motor.h>
 
+
 namespace debug_motor
 {
 DebugMotor::DebugMotor(ros::NodeHandle nh) : nh_(nh), shake_id_string_("hello"), dev_("/dev/ttyUSB0"), baud_rate_(115200), framerate_(1000),read_write_(0)	//construct
@@ -25,33 +26,33 @@ DebugMotor::DebugMotor(ros::NodeHandle nh) : nh_(nh), shake_id_string_("hello"),
 	pnh.param("buad_rate", baud_rate_, baud_rate_);
 	pnh.param("time_out", time_out, time_out);
   	// 开启串口模块
-//	try
-//	{
-//	    ros_ser_.setPort(dev_);		//Sets the serial port identifier ,like 'COM1','/dev/ttyUSB0'
-//	    ros_ser_.setBaudrate(baud_rate_);	//Sets the baudrate for the serial port
-//	    serial::Timeout to = serial::Timeout::simpleTimeout(time_out);	//Defines timeout struct
-//	    ros_ser_.setTimeout(to);	//Sets the timeout for reads and writes using the Timeout struct
-//	    ros_ser_.open();	//Opens the serial port as long as the port is set and the port isn't already open
-//	    ros_ser_.flushInput();	 //Flush only the input buffer
-//	}
-//	catch (serial::IOException& e)	//Captures exception
-//	{
-//	  	ROS_ERROR_STREAM("Unable to open port ");     
-//	}
-//	char ch = getchar();
-//	ROS_INFO("%.2X",ch);
-////	while(!ros_ser_.isOpen())	//Gets the open stauts of the serial port
-////	{
-//	  	ROS_INFO_STREAM("Serial Port did't open");
-//	  
-////	  	ros_ser_
-////	  	if(getchar()==0x27)
-////	  	{
-////	  		break;
-////	  	}
-////	}
-//	ros_ser_.flushInput(); 
-//	ROS_INFO_STREAM("Serial Port opened");
+
+	try
+	{
+	    ros_ser_.setPort(dev_);		//Sets the serial port identifier ,like 'COM1','/dev/ttyUSB0'
+	    ros_ser_.setBaudrate(baud_rate_);	//Sets the baudrate for the serial port
+	    serial::Timeout to = serial::Timeout::simpleTimeout(time_out);	//Defines timeout struct
+	    ros_ser_.setTimeout(to);	//Sets the timeout for reads and writes using the Timeout struct
+	    ros_ser_.open();	//Opens the serial port as long as the port is set and the port isn't already open
+	    ros_ser_.flushInput();	 //Flush only the input buffer
+	}
+	catch (serial::IOException& e)	//Captures exception
+	{
+	  	ROS_ERROR_STREAM("Unable to open port ");     
+	}
+	char ch = getchar();
+	ROS_INFO("%.2X",ch);
+	while(!ros_ser_.isOpen())	//Gets the open stauts of the serial port
+	{
+	  	ROS_INFO_STREAM("Serial Port did't open");
+	  	if(getchar()==0x27)
+	  	{
+	  		break;
+	  	}
+	}
+	ros_ser_.flushInput(); 
+	ROS_INFO_STREAM("Serial Port opened");
+
   	// Create timer.
   	//timer_ = nh_.createTimer(ros::Duration(1.0 / rate), &DebugMotor::timerCallback, this);
 }
@@ -61,10 +62,10 @@ void DebugMotor::start()
 	set_torque_Nm_=0;
 	control_mode_=0;
 	ROS_INFO("START");
-//	std::thread analyse_frame_thread(&DebugMotor::analyse_data,this);	//Create a thread used to analyse received data
+	std::thread analyse_frame_thread(&DebugMotor::analyse_data,this);	//Create a thread used to analyse received data
 	std::thread send_frame_thread(&DebugMotor::send_data,this);	//Creates a thread used to send calibration frame 
 	std::thread main_process(&DebugMotor::spin,this);	//Creates a thread as used to control motor with CAN protocol and publish key message periodically  
-//	analyse_frame_thread.join();	//Joins thread of data analysation 
+	analyse_frame_thread.join();	//Joins thread of data analysation 
 	send_frame_thread.join();	//Joins thread of data send 
     main_process.join();	//Joins thread of control and publish
     stop();
@@ -164,9 +165,9 @@ void DebugMotor::send_data()
 					ROS_INFO("\033[34msend save cmd :\033[0m");
 					s_data[0]=0x53;
 					s_data[7]=0x53;
-//					size = ros_ser_.write(s_data,8);
-//					confirm_send(s_data,size);
-					ROS_INFO("wrote");
+					size = ros_ser_.write(s_data,8);
+					confirm_send(s_data,size);
+//					ROS_INFO("wrote");
 					break;
 				}
 				case 4:		//通信模式切换指令
@@ -225,9 +226,9 @@ void DebugMotor::send_shake_id_cmd(std_msgs::String str)
 		s_data[s_length++]=str.data.at(index);
 	}
 	s_data[s_length++]=sum;
-	ROS_INFO("wrote data");
-//	size = ros_ser_.write(s_data,s_length);
-//	confirm_send(s_data,size);
+//	ROS_INFO("wrote data");
+	size = ros_ser_.write(s_data,s_length);
+	confirm_send(s_data,size);
 	
 }
 //Input calibration parameters,no output ,sending an array of bit operation frame
@@ -260,9 +261,9 @@ void DebugMotor::send_bit_cmd(int page_index,int pos_index,int32_t set_val,int n
 		s_data[s_length++]=static_cast<unsigned char>(set_val)&0xff;
 		crc(s_data,s_length,&sum);	//Gets checksum
 		s_data[s_length++]=sum;
-//		size = ros_ser_.write(s_data,s_length);
-//		confirm_send(s_data,size);
-		ROS_INFO("wrote data");
+		size = ros_ser_.write(s_data,s_length);
+		confirm_send(s_data,size);
+//		ROS_INFO("wrote data");
 	}
 	else
 	{
@@ -304,9 +305,9 @@ void DebugMotor::send_nbyte_cmd(unsigned char operated_object,int page_index,int
 		}
 		s_data[s_length++]=sum;
 		
-//		size = ros_ser_.write(s_data,s_length);
-//		confirm_send(s_data,size);
-		ROS_INFO("wrote data");
+		size = ros_ser_.write(s_data,s_length);
+		confirm_send(s_data,size);
+//		ROS_INFO("wrote data");
 	}
 	else
 	{
@@ -377,9 +378,9 @@ void DebugMotor::control_motor()
 	}
 	else;
 	s_length++;
-//	size = ros_ser_.write(s_data,s_length);
-//	confirm_send(s_data,size);
-	ROS_INFO("wrote data");
+	size = ros_ser_.write(s_data,s_length);
+	confirm_send(s_data,size);
+//	ROS_INFO("wrote data");
 }
 // As third thread, process motor control and pub_msg
 void DebugMotor::spin()
