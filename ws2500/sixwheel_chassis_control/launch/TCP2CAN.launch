@@ -1,0 +1,3 @@
+<launch>
+  	<node name="cmd_vel_to_current_node" pkg="sixwheel_chassis_control" type="cmd_vel_to_current_node" output="screen"/>
+</launch>
