@@ -1,0 +1,3 @@
+<launch>
+  	<node name="ws2500_chassis" pkg="ws2500_chassis_control" type="ws2500_chassis_node" output="screen"/>
+</launch>

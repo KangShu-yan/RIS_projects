@@ -10,10 +10,10 @@
 #include <geometry_msgs/Twist.h>
 #define MAXLEN 200
 
-ros::Publisher susp_power_pub;		//information of suspension and power are published
+ros::Publisher susp_pub;		//information of suspension and power are published
 //tcp_client tcp_can_client("192.168.1.10",4001,1);
 tcp_client PLC_client("192.168.1.250",5001,0);
-tcp_client power_client("192.168.1.40",4001,0);
+//tcp_client power_client("192.168.1.40",4001,0);
 /***
  *	@brief 
  *	function:
@@ -71,12 +71,12 @@ void suspension_control(void)
 *	output:
 *		sendBuffer 
 **/
-void power_control(void)
-{
-	char sendBuffer[8]={0};
-	ROS_INFO("suspension_control function");
-//	power_client.Send(tcp200_data,13);
-}
+//void power_control(void)
+//{
+//	char sendBuffer[8]={0};
+//	ROS_INFO("suspension_control function");
+////	power_client.Send(tcp200_data,13);
+//}
 
 /*
 *	@brief 
@@ -116,10 +116,7 @@ int main(int argc, char **argv)
 	 		decode_frame(feedback_data,byte_len);
 	 	else 
 			ROS_WARN_STREAM_ONCE(" Received wrong!");
-	 	if(power_client.Receive(feedback_data, 100, 0, &byte_len, 0)==1)
-	 		decode_frame(feedback_data,byte_len);
-	 	else
-			ROS_WARN_STREAM_ONCE(" Received wrong!");	
+	 	
 //		if(number>20)
 //		{
 //			number=0;
