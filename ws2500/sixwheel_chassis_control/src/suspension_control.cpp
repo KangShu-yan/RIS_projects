@@ -63,20 +63,6 @@ void suspension_control(void)
 	ROS_INFO("suspension_control function");
 //	PLC_client.Send(tcp200_data,13);
 }
-/**
-*	function:
-		suspension_control:suspension control and send commands to PLC 
-*	input:
-*		
-*	output:
-*		sendBuffer 
-**/
-//void power_control(void)
-//{
-//	char sendBuffer[8]={0};
-//	ROS_INFO("suspension_control function");
-////	power_client.Send(tcp200_data,13);
-//}
 
 /*
 *	@brief 
