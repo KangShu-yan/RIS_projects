@@ -92,7 +92,7 @@ void DebugMotor::printf_frame(const unsigned char *frame,const int size)
 	printf("\n");
 }
 //Input an array and its size written by serial ,no output 
-void DebugMotor::confirm_send(const unsigned char *frame,const int size)
+bool DebugMotor::confirm_send(const unsigned char *frame,const int size)
 {
 	if(size>0)	//if size larger than zero,there were bytes have been send successfully
 	{
@@ -102,12 +102,54 @@ void DebugMotor::confirm_send(const unsigned char *frame,const int size)
 			printf("%.2x ",(unsigned char)frame[index]);
 		}
 		printf("\n");
+		return 1;
 	}
 	else
 	{
 		ROS_WARN_STREAM("No byte written!");
+		return 0;
 	}
 }
+void DebugMotor::analyse_CAN_data(unsigned char *frame,int size)
+{
+	//08 00 00 00 72 00 00 00 00 00 00 00 00 
+//	std::lock_guard<mutex> lock(m_mutex);
+	m_mutex.lock();
+	if(frame[4]==0x72)
+	{
+	  	motor_rpm_[0] = (frame[5]<<8)|frame[6];
+	  	motor_Nm_[0] = (frame[7]<<8)|frame[9];
+	}
+	else if(frame[4]==0x73)
+	{
+		motor_rpm_[1] = (frame[5]<<8)|frame[6];
+	  	motor_Nm_[1] = (frame[7]<<8)|frame[9];
+	}
+	else if(frame[3]==0x74)
+	{
+	 	motor_rpm_[2] = (frame[5]<<8)|frame[6];
+	  	motor_Nm_[2] = (frame[7]<<8)|frame[9]; 		
+	}
+	else if(frame[4]==0x75)
+	{
+	 	motor_rpm_[3] = (frame[5]<<8)|frame[6];
+	  	motor_Nm_[3] = (frame[7]<<8)|frame[9]; 			
+	}
+	else if(frame[4]==0x76)
+	{
+	 	motor_rpm_[4] = (frame[5]<<8)|frame[6];
+	  	motor_Nm_[4] = (frame[7]<<8)|frame[9]; 		
+	}
+	else if(frame[4]==0x77)
+	{
+	 	motor_rpm_[5] = (frame[5]<<8)|frame[6];
+	  	motor_Nm_[5] = (frame[7]<<8)|frame[9]; 		
+	}
+	else return;
+	m_mutex.unlock();
+	printf_frame(frame,size);
+}
+
 //As first thread applied to analyser of read bytes from the serial port 
 void DebugMotor::analyse_data()
 {
@@ -115,8 +157,7 @@ void DebugMotor::analyse_data()
 	unsigned char r_data[100]={0};	
   	while(nh_.ok())
   	{
-  		received_data_.data = ros_ser_.read(ros_ser_.available());	//serial::available() returns the number of characters in the buffer.
-  																	//serial::read() read a given amount of bytes from the serial port 
+  		received_data_.data = ros_ser_.read(ros_ser_.available());	//serial::available() returns the number of characters in the buffer.																	//serial::read() read a given amount of bytes from the serial port 
   		ROS_INFO("\033[32manalyse_data with size: \033[0m%d",static_cast<int>(received_data_.data.size()));
   		r_length=0;	//Clears essential parameter before use it 
   		sum=0;
@@ -127,6 +168,31 @@ void DebugMotor::analyse_data()
 	  	if(r_length>0)
 	  	{
 	  		printf_frame(r_data,r_length);
+	  	}
+	  	for(int idx=0;idx<r_length;idx++)
+	  	{
+	  		if(r_data[idx]==0x55)
+	  		{
+	  			ROS_INFO("get command with respect to \033[32mbit\033[0m value operation");
+	  		}
+	  		else if(r_data[idx]==0xaa)
+	  		{
+	  			ROS_INFO("get command with respect to \033[32mbyte\033[0m value operation");
+	  		}
+	  		else if(r_data[idx]==0xcc)
+	  		{
+	  			ROS_INFO("get command with respect to \033[32mword\033[0m value operation");
+	  		}
+	  		else if(r_data[idx]==0x33)
+	  		{
+	  			ROS_INFO("get command with respect to \033[32mlong word\033[0m value operation");
+	  		}
+	  		//08 00 00 00 72 00 00 00 00 00 00 00 00 
+	  		else if(r_data[idx]==0x08)
+	  		{
+	  			analyse_CAN_data(r_data+idx,13);
+	  		}
+	  		else;
 	  	}
 //  	usleep(10000);	//unit is us
 		sleep(1);	//unit is s 
@@ -147,7 +213,7 @@ void DebugMotor::send_data()
 					send_data_.data+="wzengqc";	
 					ROS_INFO("\033[34msend shake cmd :\033[0m");
 					send_shake_id_cmd(send_data_);
-	//				oper_object_=0;
+					oper_object_=0;
 					break;
 				}
 				case 2:		//识别帧
@@ -156,6 +222,7 @@ void DebugMotor::send_data()
 					send_data_.data+="Zyfsbmv";	
 					ROS_INFO("\033[34msend identify cmd :\033[0m");
 					send_shake_id_cmd(send_data_);
+					oper_object_=0;
 					break;
 				}
 				case 3:		//保存指令
@@ -167,6 +234,7 @@ void DebugMotor::send_data()
 					s_data[7]=0x53;
 					size = ros_ser_.write(s_data,8);
 					confirm_send(s_data,size);
+					oper_object_=0;
 //					ROS_INFO("wrote");
 					break;
 				}
@@ -177,40 +245,106 @@ void DebugMotor::send_data()
 					send_data_.data.push_back(0xa5);
 					send_data_.data+="change";
 					send_shake_id_cmd(send_data_);
+					oper_object_=0;
 					break;
 				}
 				case 5:		//operate bit
 				{
 					ROS_INFO("\033[34msend bit cmd\033[0m");
 					send_bit_cmd(page_index_,pos_index_,set_val_,nth_bit_);
+					oper_object_=0;
 					break;
 				}
 				case 6:		//operate byte
 				{
 					ROS_INFO("\033[34msend byte cmd\033[0m");
 					send_nbyte_cmd(0xaa,page_index_,pos_index_,set_val_);
+					oper_object_=0;
 					break;
 				}
 				case 7:		//operate word
 				{
 					ROS_INFO("\033[34msend word cmd\033[0m");
 					send_nbyte_cmd(0xcc,page_index_,pos_index_,set_val_);
+					oper_object_=0;
 					break;
 				}
 				case 8:		//operate long word
 				{
 					ROS_INFO("\033[34msend long word cmd\033[0m");
 					send_nbyte_cmd(0x33,page_index_,pos_index_,set_val_);
+					oper_object_=0;
 					break;
 				}
 				default:
 				{
-						ROS_INFO("No write or read operation!");
+					ROS_INFO("No write or read operation!");
 				}
 			}
-		}
+			if(batch_read_)
+			{
+				batch_send();
+				batch_read_=0;
+			}
+				
+		}//end if(send_params_)
+	
 //		usleep(1000000);	//us
 		sleep(1);
+	}
+}
+void DebugMotor::batch_send()
+{
+	char break_flag=0;
+	ROS_INFO("\033[34mbatch send command>>>>>>>>\033[0m");
+	//send
+	send_data_.data="";
+	send_data_.data+="wzengqc";
+	send_shake_id_cmd(send_data_);	//握手帧
+	send_data_.data="";
+	send_data_.data+="Zyfsbmv";	
+	send_shake_id_cmd(send_data_);	//识别帧
+	read_write_=1;					//指定为读操作
+//	send_bit_cmd(page_index_,pos_index_,set_val_,nth_bit_);
+	ROS_INFO("\033[34mbatch send by bit ko >>>>>>>>\033[0m");
+	for(int bit_idx=0;bit_idx<8;bit_idx++)	//批量读取位
+	{
+		send_bit_cmd(0,0,0,bit_idx);	//0byte index
+		send_bit_cmd(0,1,0,bit_idx);	//1 byte index
+		if(bit_idx<4)
+			send_bit_cmd(0,2,0,bit_idx);	//2 byte index
+	}
+	ROS_INFO("\033[34mbatch send by byte ko >>>>>>>>\033[0m");
+	for(int byte_idx=0;byte_idx<10;byte_idx++)	//批量读取字节
+	{
+//		send_nbyte_cmd(0xaa,page_index_,pos_index_,set_val_);
+		if(byte_idx!=3)
+		{
+			send_nbyte_cmd(0xaa,1,byte_idx,0);
+		}
+	}
+	ROS_INFO("\033[34mbatch send by word ko >>>>>>>>\033[0m");
+	for(int page_idx=5;page_idx<8;page_idx)	//批量读取字
+	{
+		for(int word_idx=0;word_idx<16;word_idx++)
+		{
+//			send_nbyte_cmd(0xcc,page_index_,pos_index_,set_val_);
+			send_nbyte_cmd(0xcc,page_idx,word_idx,0);
+			if(page_idx==7&&word_idx==13)
+			{
+				break_flag=1;
+				break;
+			}
+		}
+		if(break_flag==1)
+			break;
+	}
+	ROS_INFO("\033[34mbatch send by long word ko >>>>>>>>\033[0m");
+	for(int lword_idx=0;lword_idx<8;lword_idx++)	//批量读取长字
+	{
+		send_nbyte_cmd(0x33,13,lword_idx,0);	
+		if(lword_idx<3)
+			send_nbyte_cmd(0x33,14,lword_idx,0);
 	}
 }
 //Input string ,no output,sending an array of shake hand frame or an array of identification frame  
@@ -228,7 +362,8 @@ void DebugMotor::send_shake_id_cmd(std_msgs::String str)
 	s_data[s_length++]=sum;
 //	ROS_INFO("wrote data");
 	size = ros_ser_.write(s_data,s_length);
-	confirm_send(s_data,size);
+	if(confirm_send(s_data,size))
+		ROS_INFO_STREAM("string "<<str<< " was sent to the driver");
 	
 }
 //Input calibration parameters,no output ,sending an array of bit operation frame
@@ -238,17 +373,18 @@ void DebugMotor::send_bit_cmd(int page_index,int pos_index,int32_t set_val,int n
 	unsigned char s_length=0;
 	unsigned char sum=0;
 	int size=0;
-	if(read_write_==1)
+	char rw_now;
+	if(read_write_==1)	//read
 	{
 		ROS_INFO("\033[32msend_read_cmd:\033[0m");
 		s_data[s_length++]=0x55;
-		s_data[s_length++]=0x80|pos_index;	
+		s_data[s_length++]=0x00|pos_index;	
 	}
-	else if(read_write_==2)
+	else if(read_write_==2)	//write
 	{
 		ROS_INFO("\033[32msend_write_data:\033[0m");
 		s_data[s_length++]=0x55;
-		s_data[s_length++]=0x00|pos_index;
+		s_data[s_length++]=0x80|pos_index;
 	}
 	else;
 	if(read_write_==1|read_write_==2)
@@ -262,7 +398,12 @@ void DebugMotor::send_bit_cmd(int page_index,int pos_index,int32_t set_val,int n
 		crc(s_data,s_length,&sum);	//Gets checksum
 		s_data[s_length++]=sum;
 		size = ros_ser_.write(s_data,s_length);
-		confirm_send(s_data,size);
+		if(confirm_send(s_data,size))
+			if(rw_now==1)
+				ROS_INFO("page %d bit %d of byte %d with set value %d was sent to the driver for read ",page_index,nth_bit,pos_index,set_val);
+			else if(rw_now==2)
+				ROS_INFO("page %d bit %d of byte %d with set value %d was sent to the driver for write",page_index,nth_bit,pos_index,set_val);
+			else;
 //		ROS_INFO("wrote data");
 	}
 	else
@@ -277,20 +418,21 @@ void DebugMotor::send_nbyte_cmd(unsigned char operated_object,int page_index,int
 	unsigned char s_length=0;
 	unsigned char sum=0;
 	int size=0;
-	if(read_write_==1)
+	unsigned char rw_now=read_write_;
+	if(rw_now==1)
 	{
 		ROS_INFO("\033[32msend_read_cmd:\033[0m");
 		s_data[s_length++]=operated_object;
 		s_data[s_length++]=0x00+pos_index;
 	}
-	else if(read_write_==2)
+	else if(rw_now==2)
 	{
 		ROS_INFO("\033[32msend_write_data:\033[0m");
 		s_data[s_length++]=operated_object;
 		s_data[s_length++]=0x80+pos_index;
 	}
 	else;
-	if(read_write_==1|read_write_==2)
+	if(rw_now==1|rw_now==2)
 	{
 		s_data[s_length++]=page_index;
 		//数据位
@@ -306,7 +448,28 @@ void DebugMotor::send_nbyte_cmd(unsigned char operated_object,int page_index,int
 		s_data[s_length++]=sum;
 		
 		size = ros_ser_.write(s_data,s_length);
-		confirm_send(s_data,size);
+		if(confirm_send(s_data,size))
+		{
+			if(operated_object==0xaa)
+				if(rw_now==1)
+					ROS_INFO("page %d byte %d with set value %d was sent to the driver for \033[32mread\033[0m",page_index,pos_index,set_val);
+				else if(rw_now==2)
+					ROS_INFO("page %d byte %d with set value %d was sent to the driver for \033[32mwrite\033[0m",page_index,pos_index,set_val);
+				else;
+			else if(operated_object==0xcc)
+				if(rw_now==1)
+					ROS_INFO("page %d word %d with set value %d was sent to the driver for \033[32mread\033[0m",page_index,pos_index,set_val);
+				else if(rw_now==2)
+					ROS_INFO("page %d word %d with set value %d was sent to the driver for \033[32mwrite\033[0m",page_index,pos_index,set_val);
+				else;
+			else if(operated_object==0x33)
+				if(rw_now==1)
+					ROS_INFO("page %d long word %d with set value %d was sent to the driver for \033[32mread\033[0m",page_index,pos_index,set_val);
+				else if(rw_now==2)
+					ROS_INFO("page %d long word %d with set value %d was sent to the driver for \033[32mwrite\033[0m,",page_index,pos_index,set_val);
+				else;
+			else;
+		}
 //		ROS_INFO("wrote data");
 	}
 	else
@@ -335,17 +498,32 @@ void DebugMotor::configCallback(debug_motor::debugMotorConfig &config, uint32_t 
   nth_bit_=config.nth_bit;
   send_params_=config.send_params;
   //parameters used to motor control with CAN protocol 
+  m_mutex.lock();
   set_speed_rpm_=config.set_speed_rpm;
   set_torque_Nm_=config.set_torque_Nm;
   control_mode_=config.control_mode;
+  m_mutex.unlock();
   motor_id_=config.motor_id;
   send_CAN_=config.send_CAN;
-  
+  batch_read_ =config.batch_read;
 }
 //publish necessary variables
 void DebugMotor::pub_msg()
 {
 	debug_motor::debugMotorData msg;
+	int temp_array[6]={0};
+	
+//	temp_array[0]=12;
+	m_mutex.lock();
+	std::vector<int16_t> m_rpm(motor_rpm_,motor_rpm_+6);
+	std::vector<int16_t> m_Nm(motor_Nm_,motor_Nm_+6);
+	m_mutex.unlock();
+	msg.motor_rpm=m_rpm;
+	msg.motor_rpm.resize(6);	//设定容器尺寸
+	msg.motor_Nm=m_Nm;
+	msg.motor_Nm.resize(6);	//设定容器尺寸
+//	msg.motor_tempoC=m_rpm;
+//	msg.motor_tempoC.resize(6);	//设定容器尺寸
 	msg.message = shake_id_string_;
 	msg.a = a_;
 	msg.b = b_;
@@ -358,21 +536,27 @@ void DebugMotor::control_motor()
 	unsigned char s_data[20]={0};
 	unsigned char s_length=0;
 	int size=0;
-	s_data[s_length++]=0x44;
-	s_length+=3;
-	s_data[s_length++]=motor_id_;
+	m_mutex.lock();
+	int setSpeedRpm = set_speed_rpm_;
+	int setSpeedNm = set_torque_Nm_;
+	m_mutex.unlock();
+	s_data[s_length++]=0x08;
+	s_data[s_length++]=0x00;
+	s_data[s_length++]=0x00;
+	s_data[s_length++]=0x00;
+	s_data[s_length++]=0x44+motor_id_;
 	if(control_mode_==1)	//速度控制模式
 	{
-		s_data[s_length++]=(set_speed_rpm_>>8)&0xff;
-		s_data[s_length++]=(unsigned char)set_speed_rpm_&0xff;
+		s_data[s_length++]=(setSpeedRpm>>8)&0xff;
+		s_data[s_length++]=(unsigned char)setSpeedRpm&0xff;
 		s_length+=4;
 		s_data[s_length++]=0x55;
 	}
-	else if(control_mode_==2)
+	else if(control_mode_==2)	//力矩控制模式
 	{
 		s_length+=2;
-		s_data[s_length++]=(set_torque_Nm_>>8)&0xff;
-		s_data[s_length++]=(unsigned char)set_torque_Nm_&0xff;
+		s_data[s_length++]=(setSpeedNm>>8)&0xff;
+		s_data[s_length++]=(unsigned char)setSpeedNm&0xff;
 		s_length+=2;
 		s_data[s_length++]=0xaa;
 	}
@@ -399,7 +583,7 @@ void DebugMotor::spin()
 		}
 		if(send_CAN_)
 		{
-			control_motor();
+			control_motor();	//USB-CAN
 		}
 //		ROS_INFO("spin : %d",counter);
 		ros::spinOnce();

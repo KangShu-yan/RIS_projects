@@ -38,6 +38,8 @@ private:
 	void analyse_data();
  	//Used to send command to adjust parameter
 	void send_data();
+	//batch send command
+	void batch_send();
 	//Pulishs  message 
 	void pub_msg();
 	//Controls motor with CAN protocol
@@ -52,12 +54,13 @@ private:
 	void send_nbyte_cmd(unsigned char operated_object,int page_index,int pos_index,int32_t set_val);
 	//	template<typename VST1,typename VST2>
 	//	void crc(const VST1 frame,const VST2 length,unsigned char& sum);
+	void analyse_CAN_data(unsigned char *frame,int size);
 	//Checks sum
 	void crc(const unsigned char *frame,const int length,unsigned char* sum);
 	//Prints an frame
 	void printf_frame(const unsigned char* frame,const int length);
 	//Confirm whether frame was sent successfully
-	void confirm_send(const unsigned char* frame,const int size);
+	bool confirm_send(const unsigned char* frame,const int size);
   	//! Turns off publisher.
   	void stop();
   	//! ROS node handle.
@@ -79,12 +82,15 @@ private:
 	//Parameters for motor control 
 	int set_speed_rpm_,set_torque_Nm_,control_mode_,motor_id_;
 	//Enable variables
-	bool send_CAN_,send_params_;
+	bool send_CAN_,send_params_,batch_read_;
   	//! USB write and read
 	serial::Serial ros_ser_;
   	//! USB received data 
 	std_msgs::String received_data_,send_data_;
+	int motor_rpm_[6];
+	int motor_Nm_[6];
 	//	unsigned char received_frame[100];
+	std::mutex m_mutex;
 };
 }
 
