@@ -1,6 +1,4 @@
 #include <debug_motor/d_motor.h>
-
-
 namespace debug_motor
 {
 DebugMotor::DebugMotor(ros::NodeHandle nh) : nh_(nh), shake_id_string_("hello"), dev_("/dev/ttyUSB0"), baud_rate_(115200), framerate_(1000),read_write_(0)	//construct
@@ -25,6 +23,19 @@ DebugMotor::DebugMotor(ros::NodeHandle nh) : nh_(nh), shake_id_string_("hello"),
 	pnh.param("dev", dev_, dev_);
 	pnh.param("buad_rate", baud_rate_, baud_rate_);
 	pnh.param("time_out", time_out, time_out);
+	
+	for(int idx=0;idx<6;idx++)
+	{
+		motor_rpm_[idx]=0;
+		motor_Nm_[idx]=0;
+		motor_tempoc_[idx]=0;
+		motor_break_code_[idx]=0;
+		motor_odom_er_[idx]=0;
+	}
+	for(int idx=100;idx<100;idx++)
+		for(int sub_idx=13;sub_idx<8;sub_idx++)
+			params_[idx][sub_idx]=0;
+	params_index_=0;
   	// 开启串口模块
 
 	try
@@ -40,15 +51,15 @@ DebugMotor::DebugMotor(ros::NodeHandle nh) : nh_(nh), shake_id_string_("hello"),
 	{
 	  	ROS_ERROR_STREAM("Unable to open port ");     
 	}
-	char ch = getchar();
-	ROS_INFO("%.2X",ch);
+//	char ch = getchar();
+//	ROS_INFO("%.2X",ch);
 	while(!ros_ser_.isOpen())	//Gets the open stauts of the serial port
 	{
 	  	ROS_INFO_STREAM("Serial Port did't open");
-	  	if(getchar()==0x27)
-	  	{
-	  		break;
-	  	}
+//	  	if(getchar()==0x27)
+//	  	{
+//	  		break;
+//	  	}
 	}
 	ros_ser_.flushInput(); 
 	ROS_INFO_STREAM("Serial Port opened");
@@ -62,10 +73,10 @@ void DebugMotor::start()
 	set_torque_Nm_=0;
 	control_mode_=0;
 	ROS_INFO("START");
-	std::thread analyse_frame_thread(&DebugMotor::analyse_data,this);	//Create a thread used to analyse received data
+//	std::thread analyse_frame_thread(&DebugMotor::analyse_data,this);	//Create a thread used to analyse received data
 	std::thread send_frame_thread(&DebugMotor::send_data,this);	//Creates a thread used to send calibration frame 
 	std::thread main_process(&DebugMotor::spin,this);	//Creates a thread as used to control motor with CAN protocol and publish key message periodically  
-	analyse_frame_thread.join();	//Joins thread of data analysation 
+//	analyse_frame_thread.join();	//Joins thread of data analysation 
 	send_frame_thread.join();	//Joins thread of data send 
     main_process.join();	//Joins thread of control and publish
     stop();
@@ -114,51 +125,100 @@ void DebugMotor::analyse_CAN_data(unsigned char *frame,int size)
 {
 	//08 00 00 00 72 00 00 00 00 00 00 00 00 
 //	std::lock_guard<mutex> lock(m_mutex);
+	int32_t motor_rpm[6]={0},motor_Nm[6]={0},motor_break_code[6]={0};
+	int16_t motor_odom_er[6]={0},motor_tempoc[6]={0};
+	
+	if(frame[0]==0x72)
+	{
+	  	motor_rpm[0] = frame[1]|(frame[2]<<8)|(frame[3]<<16)|(frame[4]<<24);
+	  	motor_Nm[0] =frame[5]|(frame[6]<<8)|(frame[7]<<16)|(frame[8]<<24);
+	  	
+	}
+	else if(frame[0]==0x73)
+	{
+		motor_rpm[1] =frame[1]|(frame[2]<<8)|(frame[3]<<16)|(frame[4]<<24);
+	  	motor_Nm[1] =frame[5]|(frame[6]<<8)|(frame[7]<<16)|(frame[8]<<24);
+	}
+	else if(frame[0]==0x74)
+	{
+	 	motor_rpm[2] = frame[1]|(frame[2]<<8)|(frame[3]<<16)|(frame[4]<<24);
+	  	motor_Nm[2] = frame[5]|(frame[6]<<8)|(frame[7]<<16)|(frame[8]<<24); 		
+	}
+	else if(frame[0]==0x75)
+	{
+	 	motor_rpm[3] = frame[1]|(frame[2]<<8)|(frame[3]<<16)|(frame[4]<<24);
+	  	motor_Nm[3] = frame[5]|(frame[6]<<8)|(frame[7]<<16)|(frame[8]<<24); 			
+	}
+	else if(frame[0]==0x76)
+	{
+	 	motor_rpm[4] = frame[1]|(frame[2]<<8)|(frame[3]<<16)|(frame[4]<<24);
+	  	motor_Nm[4] = frame[5]|(frame[6]<<8)|(frame[7]<<16)|(frame[8]<<24);		
+	}
+	else if(frame[0]==0x77)
+	{
+	 	motor_rpm[5] = frame[1]|(frame[2]<<8)|(frame[3]<<16)|(frame[4]<<24);
+	  	motor_Nm[5] =frame[5]|(frame[6]<<8)|(frame[7]<<16)|(frame[8]<<24);		
+	}
+	else if(frame[0]==0x52)
+	{
+		motor_break_code[0]= frame[1]|(frame[2]<<8)|(frame[3]<<16)|(frame[4]<<24);
+		motor_tempoc[0]=frame[5]|(frame[6]<<8);
+		motor_odom_er[0]=frame[7]|(frame[8]<<8);	
+	}
+	else if(frame[0]==0x53)
+	{
+		motor_break_code[1]= frame[1]|(frame[2]<<8)|(frame[3]<<16)|(frame[4]<<24);
+		motor_tempoc[1]=frame[5]|(frame[6]<<8);
+		motor_odom_er[1]=frame[7]|(frame[8]<<8);	
+	}
+	else if(frame[0]==0x54)
+	{
+		motor_break_code[2]= frame[1]|(frame[2]<<8)|(frame[3]<<16)|(frame[4]<<24);
+		motor_tempoc[2]=frame[5]|(frame[6]<<8);
+		motor_odom_er[2]=frame[7]|(frame[8]<<8);	
+	}
+	else if(frame[0]==0x55)
+	{
+		motor_break_code[3]= frame[1]|(frame[2]<<8)|(frame[3]<<16)|(frame[4]<<24);
+		motor_tempoc[3]=frame[5]|(frame[6]<<8);
+		motor_odom_er[3]=frame[7]|(frame[8]<<8);	
+	}
+	else if(frame[0]==0x56)
+	{
+		motor_break_code[4]= frame[1]|(frame[2]<<8)|(frame[3]<<16)|(frame[4]<<24);
+		motor_tempoc[4]=frame[5]|(frame[6]<<8);
+		motor_odom_er[4]=frame[7]|(frame[8]<<8);	
+	}
+	else if(frame[0]==0x57)
+	{
+		motor_break_code[5]= frame[1]|(frame[2]<<8)|(frame[3]<<16)|(frame[4]<<24);
+		motor_tempoc[5]=frame[5]|(frame[6]<<8);
+		motor_odom_er[5]=frame[7]|(frame[8]<<8);	
+	}
+	else;
 	m_mutex.lock();
-	if(frame[4]==0x72)
+	for(int idx=0;idx<6;idx++)
 	{
-	  	motor_rpm_[0] = (frame[5]<<8)|frame[6];
-	  	motor_Nm_[0] = (frame[7]<<8)|frame[9];
+		motor_rpm_[idx]=motor_rpm[idx]>>16;
+		motor_Nm_[idx]=motor_Nm[idx]>>16;
+		motor_break_code_[idx]=motor_break_code[idx];
+		motor_tempoc_[idx]=motor_tempoc[idx]+50;
+		motor_odom_er_[idx]=motor_odom_er[idx];
 	}
-	else if(frame[4]==0x73)
-	{
-		motor_rpm_[1] = (frame[5]<<8)|frame[6];
-	  	motor_Nm_[1] = (frame[7]<<8)|frame[9];
-	}
-	else if(frame[3]==0x74)
-	{
-	 	motor_rpm_[2] = (frame[5]<<8)|frame[6];
-	  	motor_Nm_[2] = (frame[7]<<8)|frame[9]; 		
-	}
-	else if(frame[4]==0x75)
-	{
-	 	motor_rpm_[3] = (frame[5]<<8)|frame[6];
-	  	motor_Nm_[3] = (frame[7]<<8)|frame[9]; 			
-	}
-	else if(frame[4]==0x76)
-	{
-	 	motor_rpm_[4] = (frame[5]<<8)|frame[6];
-	  	motor_Nm_[4] = (frame[7]<<8)|frame[9]; 		
-	}
-	else if(frame[4]==0x77)
-	{
-	 	motor_rpm_[5] = (frame[5]<<8)|frame[6];
-	  	motor_Nm_[5] = (frame[7]<<8)|frame[9]; 		
-	}
-	else return;
+	
 	m_mutex.unlock();
 	printf_frame(frame,size);
 }
 
 //As first thread applied to analyser of read bytes from the serial port 
-void DebugMotor::analyse_data()
+char DebugMotor::analyse_data()
 {
 	unsigned char sum=0,r_length=0;
 	unsigned char r_data[100]={0};	
-  	while(nh_.ok())
-  	{
+//  	while(nh_.ok())
+//  	{
   		received_data_.data = ros_ser_.read(ros_ser_.available());	//serial::available() returns the number of characters in the buffer.																	//serial::read() read a given amount of bytes from the serial port 
-  		ROS_INFO("\033[32manalyse_data with size: \033[0m%d",static_cast<int>(received_data_.data.size()));
+//  		ROS_INFO("\033[32manalyse_data with size: \033[0m%d",static_cast<int>(received_data_.data.size()));
   		r_length=0;	//Clears essential parameter before use it 
   		sum=0;
 	  	for(int index=0;index<received_data_.data.size();index++)
@@ -167,40 +227,51 @@ void DebugMotor::analyse_data()
 	  	}
 	  	if(r_length>0)
 	  	{
+	  		if(oper_object_==9)	//batch read
+	  		{
+	  			memcpy(*(params_+params_index_),r_data,r_length);	//存储batch read 后的数据
+	  			params_index_++;
+	  		}
 	  		printf_frame(r_data,r_length);
 	  	}
 	  	for(int idx=0;idx<r_length;idx++)
 	  	{
 	  		if(r_data[idx]==0x55)
 	  		{
-	  			ROS_INFO("get command with respect to \033[32mbit\033[0m value operation");
+	  			ROS_INFO("get command with respect to \033[32mbit\033[0m value operation");	
+	  			return 1;
 	  		}
 	  		else if(r_data[idx]==0xaa)
 	  		{
 	  			ROS_INFO("get command with respect to \033[32mbyte\033[0m value operation");
+	  			return 2;
 	  		}
 	  		else if(r_data[idx]==0xcc)
 	  		{
 	  			ROS_INFO("get command with respect to \033[32mword\033[0m value operation");
+	  			return 3;
 	  		}
 	  		else if(r_data[idx]==0x33)
 	  		{
 	  			ROS_INFO("get command with respect to \033[32mlong word\033[0m value operation");
+	  			return 4;
 	  		}
 	  		//08 00 00 00 72 00 00 00 00 00 00 00 00 
-	  		else if(r_data[idx]==0x08)
+	  		else if(((r_data[idx]&0xf0)==0x70)||((r_data[idx]&0xf0)==0x50))
 	  		{
-	  			analyse_CAN_data(r_data+idx,13);
+	  			analyse_CAN_data(r_data+idx,9);
+	  			return 5;
 	  		}
-	  		else;
+	  		else return -1;
 	  	}
 //  	usleep(10000);	//unit is us
-		sleep(1);	//unit is s 
-  	}
+//		sleep(1);	//unit is s 
+//  	}
 }
 //As second thread assigned as sender of calibration
 void DebugMotor::send_data()
 {
+	char batch_send_flag=0;
 	while(nh_.ok())
 	{
 		if(send_params_)
@@ -276,76 +347,131 @@ void DebugMotor::send_data()
 					oper_object_=0;
 					break;
 				}
+				case 9:
+				{
+					ROS_INFO("\033[34msend batch read cmd\033[0m");
+					batch_send();
+					oper_object_=0;	
+					batch_send_flag=1;
+					break;
+				}
 				default:
 				{
 					ROS_INFO("No write or read operation!");
 				}
 			}
-			if(batch_read_)
-			{
-				batch_send();
-				batch_read_=0;
-			}
+			if(!batch_send_flag)
+				analyse_data();
+			else
+				batch_send_flag=0;
 				
 		}//end if(send_params_)
-	
 //		usleep(1000000);	//us
 		sleep(1);
+	}
+}
+void DebugMotor::send_bit_with_response(int page_index,int pos_index,int32_t set_val,int nth_bit)
+{
+	for(int send_counter=0;send_counter<3;send_counter++)
+	{
+		send_bit_cmd(page_index,pos_index,0,nth_bit);	//0byte index
+		usleep(20000);	//2ms
+		if(analyse_data()==1)
+		{
+			break;
+		}
+		if(send_counter==2)ROS_INFO("send bit_idx page 0 byte 0 failure.");
+	}
+}
+void DebugMotor::send_nbyte_with_response(unsigned char operated_object,int page_index,int pos_index,int32_t set_val,char target)
+{
+	int max_send_times=3;
+	for(int send_counter=0;send_counter<max_send_times;send_counter++)
+	{
+		send_nbyte_cmd(operated_object,page_index,pos_index,0);
+		usleep(20000);	//2ms
+		if(analyse_data()==target)
+		{
+			break;
+		}
+		if(send_counter==2)ROS_INFO("send bit_idx page 0 byte 0 failure.");
 	}
 }
 void DebugMotor::batch_send()
 {
 	char break_flag=0;
+	params_index_=0;
 	ROS_INFO("\033[34mbatch send command>>>>>>>>\033[0m");
-	//send
-	send_data_.data="";
-	send_data_.data+="wzengqc";
-	send_shake_id_cmd(send_data_);	//握手帧
-	send_data_.data="";
-	send_data_.data+="Zyfsbmv";	
-	send_shake_id_cmd(send_data_);	//识别帧
-	read_write_=1;					//指定为读操作
-//	send_bit_cmd(page_index_,pos_index_,set_val_,nth_bit_);
-	ROS_INFO("\033[34mbatch send by bit ko >>>>>>>>\033[0m");
-	for(int bit_idx=0;bit_idx<8;bit_idx++)	//批量读取位
+	if(read_write_==1)	//batch_read
 	{
-		send_bit_cmd(0,0,0,bit_idx);	//0byte index
-		send_bit_cmd(0,1,0,bit_idx);	//1 byte index
-		if(bit_idx<4)
-			send_bit_cmd(0,2,0,bit_idx);	//2 byte index
-	}
-	ROS_INFO("\033[34mbatch send by byte ko >>>>>>>>\033[0m");
-	for(int byte_idx=0;byte_idx<10;byte_idx++)	//批量读取字节
-	{
-//		send_nbyte_cmd(0xaa,page_index_,pos_index_,set_val_);
-		if(byte_idx!=3)
+		for(int bit_idx=0;bit_idx<8;bit_idx++)	//批量读/写取位		//32
 		{
-			send_nbyte_cmd(0xaa,1,byte_idx,0);
+			//0byte index
+//			send_bit_with_response(0,0,0,bit_idx);
+			//1 byte index
+//			send_bit_with_response(0,1,0,bit_idx);
+//			if(bit_idx<4)
+//				2 byte index
+//			send_bit_with_response(0,2,0,bit_idx);
+			for(int byte_num=0;byte_num<32;byte_num++)
+				send_bit_with_response(0,byte_num,0,bit_idx);
 		}
-	}
-	ROS_INFO("\033[34mbatch send by word ko >>>>>>>>\033[0m");
-	for(int page_idx=5;page_idx<8;page_idx)	//批量读取字
-	{
-		for(int word_idx=0;word_idx<16;word_idx++)
-		{
-//			send_nbyte_cmd(0xcc,page_index_,pos_index_,set_val_);
-			send_nbyte_cmd(0xcc,page_idx,word_idx,0);
-			if(page_idx==7&&word_idx==13)
+		ROS_INFO("\033[34mbatch send by bit ko >>>>>>>>\033[0m");
+		for(int page_idx=1;page_idx<5;page_idx++)
+			for(int byte_idx=0;byte_idx<32;byte_idx++)	//批量读/写字节	//128
 			{
-				break_flag=1;
-				break;
+	//			send_nbyte_cmd(0xaa,page_index_,pos_index_,set_val_);
+//				if(byte_idx!=3)
+				send_nbyte_with_response(0xaa,page_idx,byte_idx,0,2);
+			}
+		ROS_INFO("\033[34mbatch send by byte ko >>>>>>>>\033[0m");
+		for(int page_idx=5;page_idx<13;page_idx++)	//批量读/写字			//128*2=256
+		{
+			for(int word_idx=0;word_idx<16;word_idx++)
+			{
+	//			send_nbyte_cmd(0xcc,page_index_,pos_index_,set_val_);
+				//send_nbyte_cmd(0xcc,page_idx,word_idx,0);
+				send_nbyte_with_response(0xcc,page_idx,word_idx,0,3);
+//				if(page_idx==7&&word_idx==13)
+//				{
+//					break_flag=1;
+//					break;
+//				}
+			}
+//			if(break_flag==1)
+//				break;
+		}
+		ROS_INFO("\033[34mbatch send by word ko >>>>>>>>\033[0m");
+		for(int page_idx=13;page_idx<32;page_idx++)
+			for(int lword_idx=0;lword_idx<8;lword_idx++)	//批量读/写长字  156*4
+			{
+	//		send_nbyte_cmd(0x33,13,lword_idx,0);	
+				send_nbyte_with_response(0x33,page_idx,lword_idx,0,4);
+//				if(lword_idx<3)
+					//send_nbyte_cmd(0x33,14,lword_idx,0);
+//					send_nbyte_with_response(0x33,page_idx,lword_idx,0,4);
+			}
+		ROS_INFO("\033[34mbatch send by long word ko >>>>>>>>\033[0m");
+	}
+	else if(read_write_==2)		//batch write
+	{
+		for(int idx=0;idx<params_index_;idx++)		//update 
+		{
+			if(params_index_==1024)
+			{	
+				params_[idx][1]=params_[idx][1]+0x80;	//
+				params_[idx][7]=params_[idx][7]+0x80;
 			}
 		}
-		if(break_flag==1)
-			break;
+		for(int idx=0;idx<params_index_;idx++)
+		{
+			ros_ser_.write(*(params_+idx),8);
+			usleep(20000);		//2ms
+		}
+			
+				//confirm_send(const unsigned char *frame,const int size);
 	}
-	ROS_INFO("\033[34mbatch send by long word ko >>>>>>>>\033[0m");
-	for(int lword_idx=0;lword_idx<8;lword_idx++)	//批量读取长字
-	{
-		send_nbyte_cmd(0x33,13,lword_idx,0);	
-		if(lword_idx<3)
-			send_nbyte_cmd(0x33,14,lword_idx,0);
-	}
+	else;
 }
 //Input string ,no output,sending an array of shake hand frame or an array of identification frame  
 void DebugMotor::send_shake_id_cmd(std_msgs::String str)
@@ -373,7 +499,7 @@ void DebugMotor::send_bit_cmd(int page_index,int pos_index,int32_t set_val,int n
 	unsigned char s_length=0;
 	unsigned char sum=0;
 	int size=0;
-	char rw_now;
+	unsigned char rw_now=read_write_;
 	if(read_write_==1)	//read
 	{
 		ROS_INFO("\033[32msend_read_cmd:\033[0m");
@@ -440,13 +566,11 @@ void DebugMotor::send_nbyte_cmd(unsigned char operated_object,int page_index,int
 		s_data[s_length++]=(set_val>>16)&0xff;
 		s_data[s_length++]=(set_val>>8)&0xff;
 		s_data[s_length++]=static_cast<unsigned char>(set_val)&0xff;
-		
 		for(int counter=0;counter<s_length;counter++)
 		{
 			sum+=s_data[counter];
 		}
 		s_data[s_length++]=sum;
-		
 		size = ros_ser_.write(s_data,s_length);
 		if(confirm_send(s_data,size))
 		{
@@ -505,7 +629,7 @@ void DebugMotor::configCallback(debug_motor::debugMotorConfig &config, uint32_t 
   m_mutex.unlock();
   motor_id_=config.motor_id;
   send_CAN_=config.send_CAN;
-  batch_read_ =config.batch_read;
+//  batch_read_ =config.batch_read;
 }
 //publish necessary variables
 void DebugMotor::pub_msg()
@@ -515,20 +639,37 @@ void DebugMotor::pub_msg()
 	
 //	temp_array[0]=12;
 	m_mutex.lock();
-	std::vector<int16_t> m_rpm(motor_rpm_,motor_rpm_+6);
-	std::vector<int16_t> m_Nm(motor_Nm_,motor_Nm_+6);
+	std::vector<double> m_rpm(motor_rpm_,motor_rpm_+6);
+	std::vector<double> m_Nm(motor_Nm_,motor_Nm_+6);
+	std::vector<double> m_break(motor_break_code_,motor_break_code_+6);
+	std::vector<double> m_temp(motor_tempoc_,motor_tempoc_+6);
+	std::vector<double> m_odom(motor_odom_er_,motor_odom_er_+6);
+	
 	m_mutex.unlock();
 	msg.motor_rpm=m_rpm;
 	msg.motor_rpm.resize(6);	//设定容器尺寸
 	msg.motor_Nm=m_Nm;
 	msg.motor_Nm.resize(6);	//设定容器尺寸
-//	msg.motor_tempoC=m_rpm;
-//	msg.motor_tempoC.resize(6);	//设定容器尺寸
+	msg.motor_break_code=m_break;
+	msg.motor_break_code.resize(6);	//设定容器尺
+	msg.motor_tempoC=m_temp;
+	msg.motor_tempoC.resize(6);	//设定容器尺寸
+	msg.motor_odom_er=m_odom;
+	msg.motor_odom_er.resize(6);	//设定容器尺寸
 	msg.message = shake_id_string_;
 	msg.a = a_;
 	msg.b = b_;
 	pub_.publish(msg);
 //	ROS_INFO("published msg: message_ = %s,a = %d,b = %d",shake_id_string_.c_str(),a_,b_);
+}
+void DebugMotor::syschronic_frame(void)
+{
+	unsigned char s_data[9]={0};
+	int size=0;
+	s_data[1]=0x33;
+	size = ros_ser_.write(s_data,9);	//
+	confirm_send(s_data,size);
+	
 }
 //motor control 
 void DebugMotor::control_motor()
@@ -536,41 +677,77 @@ void DebugMotor::control_motor()
 	unsigned char s_data[20]={0};
 	unsigned char s_length=0;
 	int size=0;
+	union int32_uchar setSpeedRpm;
+	union int32_uchar setTorqueNm;
 	m_mutex.lock();
-	int setSpeedRpm = set_speed_rpm_;
-	int setSpeedNm = set_torque_Nm_;
+//	int32_t setSpeedRpm = set_speed_rpm_*65536;
+//	int32_t setTorqueNm = set_torque_Nm_*65536;
+	setSpeedRpm.val = set_speed_rpm_*65536;
+	setTorqueNm.val = set_torque_Nm_*65536;
 	m_mutex.unlock();
-	s_data[s_length++]=0x08;
-	s_data[s_length++]=0x00;
-	s_data[s_length++]=0x00;
 	s_data[s_length++]=0x00;
 	s_data[s_length++]=0x44+motor_id_;
 	if(control_mode_==1)	//速度控制模式
 	{
-		s_data[s_length++]=(setSpeedRpm>>8)&0xff;
-		s_data[s_length++]=(unsigned char)setSpeedRpm&0xff;
-		s_length+=4;
+//		s_data[s_length++]=(setSpeedRpm>>8)&0xff;
+//		s_data[s_length++]=(unsigned char)setSpeedRpm&0xff;
+//		s_data[s_length++]=(setSpeedRpm>>8)&0xff;
+//		s_data[s_length++]=(unsigned char)setSpeedRpm&0xff;
+		s_data[s_length++]=setSpeedRpm.buf[0];	//低位
+		s_data[s_length++]=setSpeedRpm.buf[1];
+		s_data[s_length++]=setSpeedRpm.buf[2];
+		s_data[s_length++]=setSpeedRpm.buf[3];
+		s_length+=2;
 		s_data[s_length++]=0x55;
+		size = ros_ser_.write(s_data,10);
+		confirm_send(s_data,size);
+		control_mode_=0;
 	}
 	else if(control_mode_==2)	//力矩控制模式
 	{
-		s_length+=2;
-		s_data[s_length++]=(setSpeedNm>>8)&0xff;
-		s_data[s_length++]=(unsigned char)setSpeedNm&0xff;
-		s_length+=2;
+//		s_length+=2;
+//		s_data[s_length++]=(setSpeedNm>>8)&0xff;
+//		s_data[s_length++]=(unsigned char)setSpeedNm&0xff;
+		s_data[s_length++]=setTorqueNm.buf[0];	//低位
+		s_data[s_length++]=setTorqueNm.buf[1];
+		s_data[s_length++]=setTorqueNm.buf[2];
+		s_data[s_length++]=setTorqueNm.buf[3];
+		s_length=s_length+2;
 		s_data[s_length++]=0xaa;
+		size = ros_ser_.write(s_data,10);
+		confirm_send(s_data,size);
+		control_mode_=0;
+	}
+	else if(control_mode_==3)	//motor power on
+	{
+		s_length+=6;
+		s_data[s_length++]=0xa5;
+		size = ros_ser_.write(s_data,10);
+		confirm_send(s_data,size);
+		control_mode_=0;
+	}
+	else if(control_mode_==4)	//motor power off
+	{
+		s_length+=6;
+		s_data[s_length++]=0x5a;
+		size = ros_ser_.write(s_data,10);
+		confirm_send(s_data,size);
+		control_mode_=0;
+	}
+	else if(control_mode_==5)
+	{
+		syschronic_frame();
+		control_mode_=0;
 	}
 	else;
-	s_length++;
-	size = ros_ser_.write(s_data,s_length);
-	confirm_send(s_data,size);
+	//s_length++;
+	
 //	ROS_INFO("wrote data");
 }
 // As third thread, process motor control and pub_msg
 void DebugMotor::spin()
 {
 	int counter=0;
-	
 	ros::Rate loop_rate(framerate_);	//以hz设置循环频率
 	pub_ = nh_.advertise<debug_motor::debugMotorData>("example", 10);	//缓冲队列为10发布话题
 	while (nh_.ok())
@@ -584,11 +761,11 @@ void DebugMotor::spin()
 		if(send_CAN_)
 		{
 			control_motor();	//USB-CAN
+			analyse_data();
 		}
 //		ROS_INFO("spin : %d",counter);
 		ros::spinOnce();
 		loop_rate.sleep();
 	}
 }
-
 }

@@ -11,7 +11,8 @@
 #include <sys/time.h>
 #include <unistd.h>  //usleep us
 #include <cstdlib>
-
+//#include <stdio.h>
+#include <string.h>
 // Custom message includes. Auto-generated from msg/ directory.
 //#include <node_example/NodeExampleData.h>
 #include <debug_motor/debugMotorData.h>
@@ -35,13 +36,16 @@ private:
   	//! Timer callback for publishing message.
 	void timerCallback(const ros::TimerEvent &event);
   	//This function would be triggered after read bytes ,
-	void analyse_data();
+	char analyse_data();
  	//Used to send command to adjust parameter
 	void send_data();
 	//batch send command
 	void batch_send();
+	void send_bit_with_response(int page_index,int pos_index,int32_t set_val,int nth_bit);
+	void send_nbyte_with_response(unsigned char operated_object,int page_index,int pos_index,int32_t set_val,char target);
 	//Pulishs  message 
 	void pub_msg();
+	void syschronic_frame(void);
 	//Controls motor with CAN protocol
 	void control_motor();
 	//Main process
@@ -87,10 +91,28 @@ private:
 	serial::Serial ros_ser_;
   	//! USB received data 
 	std_msgs::String received_data_,send_data_;
-	int motor_rpm_[6];
-	int motor_Nm_[6];
+//	float motor_rpm_[6];
+//	float motor_Nm_[6];
+//	float motor_break_code_[6];
+//	float motor_tempoc_[6];
+//	float motor_odom_er_[6];
+	
+	double motor_rpm_[6];
+	double motor_Nm_[6];
+	double motor_break_code_[6];
+	double motor_tempoc_[6];
+	double motor_odom_er_[6];
+	
+	unsigned char params_[1024][8];
+	unsigned char params_index_;
 	//	unsigned char received_frame[100];
 	std::mutex m_mutex;
+	
+};
+union int32_uchar
+{
+	int32_t val;
+	unsigned char buf[4];
 };
 }
 
