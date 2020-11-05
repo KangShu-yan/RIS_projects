@@ -13,6 +13,8 @@
 #include <cstdlib>
 //#include <stdio.h>
 #include <string.h>
+#include <fstream>
+#include <stdio.h>
 // Custom message includes. Auto-generated from msg/ directory.
 //#include <node_example/NodeExampleData.h>
 #include <debug_motor/debugMotorData.h>
@@ -96,7 +98,9 @@ private:
 //	float motor_break_code_[6];
 //	float motor_tempoc_[6];
 //	float motor_odom_er_[6];
-	
+	int64_t get_CAN_counter_,send_CAN_counter_;
+	int32_t set_motor_rpm_[6];
+	int32_t set_motor_Nm_[6];
 	double motor_rpm_[6];
 	double motor_Nm_[6];
 	double motor_break_code_[6];
@@ -107,6 +111,8 @@ private:
 	unsigned char params_index_;
 	//	unsigned char received_frame[100];
 	std::mutex m_mutex;
+	std::ofstream outfile;
+	std::ifstream infile;
 	
 };
 union int32_uchar
