@@ -1,0 +1,30 @@
+<!-- Starts up everything needed to run the example listener/talker nodes. -->
+<launch>
+  <!-- Arguments to allow changing common parameters from the command line or when including this file from other launch files. -->
+  <arg name="a" default="1000"/>
+  <arg name="b" default="1000"/>
+  <arg name="message" default="hello"/>
+<!--  <arg name="rate" default="1000.0"/>-->
+
+  <!-- The debug_motor node will publish a custom message. -->
+  <node pkg="debug_motor" type="motor_test" name="motor_test_node" output= "screen">
+    <param name="a" value="$(arg a)"/>
+    <param name="framerate" value="$(arg b)"/>
+    <param name="rate" value="200.0" type="double"/>
+<!--    <param name="message" value="$(arg message)"/>-->
+<!--    <param name="rate" value="$(arg rate)"/>-->
+<!--    -->
+<!--    <param name="dev" value="/dev/ttyUSB0" type="str" />-->
+<!--	<param name="time_out" value="1000" type="int" />-->
+<!--	<param name="baud_rate" value="115200" type="int" />-->
+	
+    <remap from="/motor_test/example" to="/motor_test/chatter"/>
+  </node>
+
+  <!-- The listener node subscribes to the custom message that talker is publishing. -->
+<!--  <node pkg="node_example" type="listener" name="listener" output="screen" >-->
+<!--    <remap from="example" to="chatter"/>-->
+<!--  </node>-->
+
+  <include file="$(find debug_motor)/launch/tools.launch"/>
+</launch>

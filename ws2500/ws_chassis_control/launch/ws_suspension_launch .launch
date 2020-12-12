@@ -1,0 +1,20 @@
+<!-- Starts up everything needed to run chassis nodes. -->
+<launch>
+  <!-- Arguments to allow changing common parameters from the command line or when including this file from other launch files. -->
+  
+<!--  <arg name="b" default="2"/>-->
+<!--  <arg name="message" default="hello"/>-->
+<!--  <arg name="rate" default="1.0"/>-->
+
+  <!-- The debug_motor node will publish a custom message. -->
+  <node pkg="ws_motor" type="ws_motor_node" name="ws_motor_node" output= "screen">
+<!--    <param name="a" value="$(arg a)"/>-->
+		<param name="framerate" value="1000" type = "double"/>
+
+<!--    <remap from="example" to="chatter"/>-->
+  </node>
+
+  
+
+  
+</launch>

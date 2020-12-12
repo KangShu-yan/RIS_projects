@@ -1,0 +1,29 @@
+<package format="2">
+  <name>plc_test</name>
+  <version>0.0.1</version>
+  <description>
+    Publishers and subscribers that use the parameter server, dynamic
+    reconfigure, timers, and custom messages. Application for C++ are
+    included.
+  </description>
+  <author>sk</author>
+  <maintainer email="565016833@qq.com">RISLAB</maintainer>
+  <license>BSD</license>
+  <url>https://github.com</url>
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <build_depend>message_generation</build_depend>
+  <exec_depend>message_runtime</exec_depend>
+
+  <depend>dynamic_reconfigure</depend>
+  <depend>roscpp</depend>
+  <depend>rosgraph_msgs</depend>
+  <depend>rospy</depend>
+  <depend>std_msgs</depend>
+  <depend>serial</depend>
+
+  <exec_depend>rqt_console</exec_depend>
+  <exec_depend>rqt_reconfigure</exec_depend>
+
+  <test_depend>rostest</test_depend>
+</package>

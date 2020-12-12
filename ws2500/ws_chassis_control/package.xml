@@ -1,0 +1,29 @@
+<package format="2">
+  <name>ws_motor</name>
+  <version>0.0.1</version>
+  <description>
+   	wsmotor,publish odom ,states of driver and motor,subscribe cmd from joystick
+  </description>
+  <author>sk</author>
+  <maintainer email="565016833@qq.com">Thomas Denewiler</maintainer>
+  <license>BSD</license>
+<!--  <url>https://github.com/tdenewiler/node_example</url>-->
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <build_depend>message_generation</build_depend>
+  <exec_depend>message_runtime</exec_depend>
+
+  <depend>dynamic_reconfigure</depend>
+  <depend>roscpp</depend>
+  <depend>rosgraph_msgs</depend>
+  <depend>rospy</depend>
+  <depend>std_msgs</depend>
+  <depend>serial</depend>
+   <depend>tf</depend>
+    <depend>geometry_msgs</depend>
+
+  <exec_depend>rqt_console</exec_depend>
+  <exec_depend>rqt_reconfigure</exec_depend>
+
+  <test_depend>rostest</test_depend>
+</package>
